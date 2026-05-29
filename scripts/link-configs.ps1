@@ -9,7 +9,7 @@ param([switch]$Force, [switch]$WhatIf)
 
 $repoRoot  = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $configsDir = Join-Path $repoRoot "configs"
-$home       = $env:USERPROFILE
+$homeDir    = $env:USERPROFILE
 
 Write-Host "=== LINK CONFIGS ===" -ForegroundColor Green
 Write-Host "  Repo: $repoRoot" -ForegroundColor DarkGray
@@ -22,7 +22,7 @@ $links = @(
 
 foreach ($link in $links) {
     $from = Join-Path $repoRoot $link.From
-    $to   = $link.To.Replace("~", $home)
+    $to   = $link.To.Replace("~", $homeDir)
 
     if (Test-Path $to) {
         $existing = (Get-Item $to).Target

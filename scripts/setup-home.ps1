@@ -87,8 +87,26 @@ Write-Host "[4/6] Config symlinks / symlinky" -ForegroundColor Cyan
 
 # 5. Git config / globální nastavení
 Write-Host "[5/6] Git identity / identita" -ForegroundColor Cyan
-$gitName  = $profile.identity.git.name
-$gitEmail = $profile.identity.git.email
+# Resolve identity: saved > git-config > profile default (same priority as profile.ps1)
+$identityFile = Join-Path $env:USERPROFILE ".dev-env" "config" "identity.json"
+$savedId = if (Test-Path $identityFile) { try { Get-Content $identityFile -Raw | ConvertFrom-Json } catch { $null } } else { $null }
+if ($savedId -and $savedId.git.email) {
+    $gitName  = $savedId.git.name
+    $gitEmail = $savedId.git.email
+    Write-Host "  Using saved identity: $gitName <$gitEmail>" -ForegroundColor DarkCyan
+} else {
+    $gitCfgName  = try { git config --global user.name  2>$null } catch { $null }
+    $gitCfgEmail = try { git config --global user.email 2>$null } catch { $null }
+    if ($gitCfgName -and $gitCfgEmail -and $gitCfgEmail -ne 'jan@novak.cz' -and $gitCfgEmail -ne 'jan.novak@ppg.com') {
+        $gitName  = $gitCfgName
+        $gitEmail = $gitCfgEmail
+        Write-Host "  Using git-config identity: $gitName <$gitEmail>" -ForegroundColor DarkCyan
+    } else {
+        $gitName  = $profile.identity.git.name
+        $gitEmail = $profile.identity.git.email
+        Write-Host "  Using profile default: $gitName <$gitEmail> (PLACEHOLDER)" -ForegroundColor Yellow
+    }
+}
 if ($Force) {
     git config --global user.name "$gitName"
     git config --global user.email "$gitEmail"
