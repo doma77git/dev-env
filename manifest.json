@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://doma77git.github.io/dev-env/manifest.json",
+
+  "project": "dev-env",
+  "version": "1.0.0",
+  "created": "2026-05-29",
+  "updated": "2026-05-29",
+  "entrypoint": "index.html",
+  "authority": {
+    "source": "https://github.com/doma77git/dev-env",
+    "gist": "https://gist.github.com/doma77git/<id>",
+    "pages": "https://doma77git.github.io/dev-env"
+  },
+
+  "manifest": {
+    "bootstrap": [
+      { "file": "bootstrap.ps1", "role": "Windows entry point", "runtime": "irm <gist>/bootstrap.ps1 | iex" },
+      { "file": "bootstrap.sh",  "role": "Linux/WSL entry point",  "runtime": "curl -fsSL <gist>/bootstrap.sh | bash" }
+    ],
+    "profiles": [
+      { "file": "profiles/base.json", "role": "Shared defaults — all profiles inherit", "extends": null },
+      { "file": "profiles/home.json", "role": "Home PC — unrestricted",              "extends": "base" },
+      { "file": "profiles/work.json", "role": "Corporate PC — proxy, restricted",     "extends": "base" },
+      { "file": "profiles/lab.json",  "role": "Lab VM — experimental, WSL",           "extends": "base" }
+    ],
+    "scripts": [
+      { "file": "scripts/profile.ps1",      "role": "Profile detection (home/work/lab)", "runtime": "scripts/profile.ps1 [-Set home|work|lab]" },
+      { "file": "scripts/setup-home.ps1",   "role": "Home PC setup — winget + dirs + git", "runtime": "scripts/setup-home.ps1 [-WhatIf|-Force]" },
+      { "file": "scripts/repair.ps1",       "role": "Repair common issues",             "runtime": "scripts/repair.ps1 [-WhatIf|-Force]" },
+      { "file": "scripts/test.ps1",         "role": "Validate environment",             "runtime": "scripts/test.ps1  (exit 0=pass)" },
+      { "file": "scripts/link-configs.ps1", "role": "Symlink configs from repo to ~/",  "runtime": "scripts/link-configs.ps1 [-WhatIf|-Force]" }
+    ],
+    "configs": [
+      { "file": "configs/git/.gitconfig",   "role": "Shared Git config — symlink to ~/.gitconfig" },
+      { "file": "configs/pwsh/profile.ps1", "role": "PowerShell profile — starship + aliases" }
+    ],
+    "ai": [
+      { "file": "ai/context.md",   "role": "AI context — full lifecycle, decisions, prompts, OS-independent logic" },
+      { "file": "ai/schema.json",  "role": "JSON Schema for bootstrap reports — AI-readable contract" }
+    ],
+    "docs": [
+      { "file": "docs/index.md",     "role": "Landing page — GitHub Pages" },
+      { "file": "docs/architecture.md", "role": "Architecture — how it works (TODO)" },
+      { "file": "docs/workflows.md", "role": "Workflows — step-by-step guides (TODO)" }
+    ],
+    "menu": [
+      { "file": "menu/menu.ps1", "role": "Interactive terminal menu — all actions" }
+    ],
+    "data": [
+      { "file": "data/.gitkeep", "role": "Data exchange directory — reports, context" }
+    ]
+  },
+
+  "runtime": {
+    "entry": "bootstrap.ps1",
+    "requires": ["pwsh 7+ (Windows)", "bash 4+ (Linux/WSL)"],
+    "flow": [
+      "1. irm <gist> | iex  → bootstrap.ps1",
+      "2. Detect: fingerprint → OS → tools → PATH → OneDrive → corporate",
+      "3. Report: ~/.dev-env/report-<date>.json  +  machines.json",
+      "4. Clone: git clone → ~/.dev-env/repo/",
+      "5. Profile: scripts/profile.ps1 → home | work | lab",
+      "6. Setup: scripts/setup-<profile>.ps1 -WhatIf → -Force",
+      "7. Repair: scripts/repair.ps1 -WhatIf → -Force",
+      "8. Test: scripts/test.ps1 → pass/fail",
+      "9. Menu: menu/menu.ps1 → interactive"
+    ]
+  },
+
+  "knowledge": {
+    "concepts": [
+      { "term": "bootstrap",  "def": "Self-contained detect script — first thing that runs. Never needs git." },
+      { "term": "fingerprint", "def": "SHA256(hostname|username|domain) — unique machine+user identifier." },
+      { "term": "profile",    "def": "home | work | lab — auto-detected by domain, proxy, manufacturer." },
+      { "term": "machines.json", "def": "Append-only history of all detections — never synced, never committed." },
+      { "term": "WhatIf",     "def": "PowerShell convention — dry run, shows what WOULD happen without changing anything." }
+    ],
+    "secrets": [
+      "~/.ssh/             — SSH keys (never commit)",
+      "~/.dev-env/config/  — Local profile overrides (never commit)",
+      "~/.gitconfig.user   — Personal Git identity (never commit)",
+      "~/.npmrc, ~/.aws/   — Registry & cloud credentials (never commit)"
+    ],
+    "sync": [
+      "Gist → never auto-sync (manual copy when bootstrap logic changes)",
+      "Repo → git push/pull (manual or menu)",
+      "~/.dev-env/repo/ → git pull (bootstrap or menu)",
+      "machines.json → LOCAL ONLY — one file per machine, never shared"
+    ]
+  },
+
+  "workflows": {
+    "new-machine": [
+      "irm <gist> | iex",
+      "profile auto-detected",
+      "setup-<profile>.ps1 -WhatIf → review → -Force",
+      "repair.ps1 -WhatIf → review → -Force",
+      "test.ps1 → should be all green"
+    ],
+    "existing-machine": [
+      "irm <gist> | iex  (detect → same/changed)",
+      "menu.ps1 → pull repo",
+      "repair.ps1 -WhatIf → review",
+      "test.ps1"
+    ],
+    "after-reinstall": [
+      "irm <gist> | iex  (detect → os-changed)",
+      "setup-<profile>.ps1 -Force  (reinstall all)",
+      "repair.ps1 -Force",
+      "test.ps1"
+    ]
+  },
+
+  "pages": {
+    "landing": {
+      "url": "https://doma77git.github.io/dev-env",
+      "source": "docs/index.md",
+      "sections": ["about", "quickstart", "profiles", "scripts", "architecture", "workflows"]
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "extends": "base",
+  "description": "Domácí PC — volný režim, plná práva",
+
+  "packageManager": "winget",
+  "proxy": null,
+  "onedrive": "allow",
+
+  "identity": {
+    "git": {
+      "name": "Jan Novak",
+      "email": "jan@novak.cz"
+    },
+    "github": "doma77git"
+  },
+
+  "tools": {
+    "required": ["git"],
+    "recommended": ["node", "python", "code", "gh", "pwsh", "curl", "7z", "docker", "nvim"],
+    "optional": ["scoop", "nvm"]
+  },
+
+  "paths": {
+    "projects": "~/dev/projects",
+    "personal": "~/dev/projects/osobni",
+    "work": "~/dev/projects/ppg"
+  }
+}

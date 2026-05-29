@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Base profile — shared across all machines",
+  "description": "Dědí z něj home.json, work.json, lab.json",
+
+  "envDir": "~/.dev-env",
+  "repoDir": "~/.dev-env/repo",
+  "configDir": "~/.config",
+  "binDir": "~/bin",
+
+  "tools": {
+    "required": ["git"],
+    "recommended": ["node", "python", "code", "gh", "pwsh", "curl", "7z"],
+    "optional": ["docker", "nvim", "scoop", "nvm"]
+  },
+
+  "git": {
+    "defaultBranch": "main",
+    "autocrlf": "input",
+    "editor": "code --wait"
+  },
+
+  "paths": {
+    "maxEntries": 50,
+    "required": ["%HOME%\\bin", "%SystemRoot%\\System32"],
+    "forbiddenPatterns": ["OneDrive", "AppData\\Local\\Temp"]
+  },
+
+  "sync": {
+    "neverCommit": [
+      "~/.ssh/",
+      "~/.dev-env/machines.json",
+      "~/.dev-env/config/",
+      "~/.gitconfig.user",
+      "~/.npmrc",
+      "~/.aws/",
+      "~/.azure/"
+    ],
+    "symlink": [
+      { "from": "configs/git/.gitconfig", "to": "~/.gitconfig" },
+      { "from": "configs/pwsh/profile.ps1", "to": "~/.config/powershell/profile.ps1" }
+    ]
+  }
+}

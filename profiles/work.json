@@ -1,0 +1,40 @@
+{
+  "extends": "base",
+  "description": "Firemní PC (PPG) — omezený režim, proxy, VPN",
+
+  "packageManager": null,
+  "proxy": "http://proxy.ppg.com:8080",
+  "onedrive": "block",
+
+  "restrictions": {
+    "noAdmin": true,
+    "noWinget": true,
+    "noScoop": true,
+    "executionPolicy": "RemoteSigned"
+  },
+
+  "identity": {
+    "git": {
+      "name": "Jan Novak",
+      "email": "jan.novak@ppg.com"
+    },
+    "github": null,
+    "azure": "jan.novak@ppg.com"
+  },
+
+  "tools": {
+    "required": ["git"],
+    "recommended": ["node", "python", "code", "gh", "pwsh", "curl"],
+    "optional": []
+  },
+
+  "paths": {
+    "projects": "~/dev/projects",
+    "work": "~/dev/projects/ppg"
+  },
+
+  "vpn": {
+    "client": "Cisco AnyConnect",
+    "required": true
+  }
+}

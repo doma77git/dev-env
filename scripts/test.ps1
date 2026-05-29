@@ -1,0 +1,80 @@
+#!/usr/bin/env pwsh
+# === scripts/test.ps1 =========================================
+# ROLE:   Validate environment — return 0 (pass) or 1 (fail)
+#         Ověření prostředí
+# RUN:    ./test.ps1
+# ==============================================================
+$ErrorActionPreference = "Continue"
+$pass = 0; $fail = 0
+
+Write-Host "=== TEST ===" -ForegroundColor Green
+Write-Host ""
+
+function check($label, $condition, $fix) {
+    if ($condition) {
+        Write-Host "  ✅  $label" -ForegroundColor Green
+        $script:pass++
+    } else {
+        Write-Host "  ❌  $label" -ForegroundColor Red
+        if ($fix) { Write-Host "      Fix: $fix" -ForegroundColor DarkCyan }
+        $script:fail++
+    }
+}
+
+# 1. OS
+check "OS is Windows 10/11"                  ($env:OS -eq "Windows_NT")
+
+# 2. HOME
+check "HOME is set"                           ($env:HOME -ne $null)
+
+# 3. .dev-env
+check "~/.dev-env/ exists"                   (Test-Path "$env:USERPROFILE\.dev-env")
+
+# 4. Git
+$git = Get-Command git -ErrorAction SilentlyContinue
+check "Git installed"                         ($git -ne $null) "winget install Git.Git"
+if ($git) {
+    check "Git user.name"                     (git config --global user.name 2>$null) "git config --global user.name"
+    check "Git user.email"                    (git config --global user.email 2>$null) "git config --global user.email"
+}
+
+# 5. Node
+$node = Get-Command node -ErrorAction SilentlyContinue
+check "Node.js installed"                    ($node -ne $null) "winget install OpenJS.NodeJS.LTS"
+
+# 6. Python
+$python = Get-Command python -ErrorAction SilentlyContinue
+check "Python installed"                     ($python -ne $null) "winget install Python.Python.3.12"
+
+# 7. VS Code
+check "VS Code installed"                    (Get-Command code -ErrorAction SilentlyContinue) "winget install Microsoft.VisualStudioCode"
+
+# 8. PATH length
+$entries = ($env:PATH -split ';' | Where-Object { $_ -ne '' }).Count
+check "PATH < 50 entries ($entries)"          ($entries -le 50)
+
+# 9. No PATH duplicates
+$dupes = ($env:PATH -split ';' | Where-Object { $_ -ne '' }) | Group-Object | Where-Object Count -gt 1
+check "PATH no duplicates"                   ($dupes.Count -eq 0) "repair.ps1 -Force"
+
+# 10. SSH dir
+check "~/.ssh/ exists"                       (Test-Path "$env:USERPROFILE\.ssh") "mkdir ~/.ssh"
+
+# 11. SSH key
+$keys = Get-ChildItem "$env:USERPROFILE\.ssh\id_*" -ErrorAction SilentlyContinue
+check "SSH key exists"                       ($keys.Count -gt 0) "ssh-keygen -t ed25519"
+
+# 12. OneDrive redirects
+$odOk = $true
+if (Test-Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders") {
+    foreach ($n in @("Desktop","Documents")) {
+        $v = (Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders" -Name $n -ErrorAction SilentlyContinue).$n
+        if ($v -and $v -match 'OneDrive') { $odOk = $false }
+    }
+}
+check "OneDrive not redirecting Desktop/Documents" $odOk "Turn off OneDrive backup"
+
+# Summary
+Write-Host ""
+Write-Host "=== RESULT: $pass pass / $fail fail ===" -ForegroundColor $(if ($fail -eq 0) { "Green" } else { "Red" })
+exit $(if ($fail -eq 0) { 0 } else { 1 })

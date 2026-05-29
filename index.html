@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🧰 dev-env</title>
+<style>
+  :root { color-scheme: dark; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: system-ui, -apple-system, sans-serif; background:#0d1117; color:#c9d1d9; max-width:800px; margin:0 auto; padding:2rem; line-height:1.6; }
+  h1 { color:#58a6ff; margin-bottom:.5rem; }
+  h2 { color:#f0883e; margin:2rem 0 .5rem; border-bottom:1px solid #30363d; padding-bottom:.3rem; }
+  a { color:#58a6ff; text-decoration:none; }
+  a:hover { text-decoration:underline; }
+  .tag { display:inline-block; padding:0 .4rem; border-radius:4px; font-size:.8rem; margin-right:.4rem; }
+  .tag-human { background:#23863622; color:#3fb950; }
+  .tag-ai    { background:#a371f722; color:#a371f7; }
+  .tag-script{ background:#d2992222; color:#d29922; }
+  .box { background:#161b22; border:1px solid #30363d; border-radius:8px; padding:1.2rem; margin:1rem 0; }
+  .box.green { border-color:#238636; }
+  code { background:#21262d; padding:.1rem .4rem; border-radius:3px; font-size:.9rem; color:#ffa657; }
+  pre { background:#161b22; border:1px solid #30363d; border-radius:8px; padding:1rem; overflow-x:auto; }
+  pre code { background:none; padding:0; color:#c9d1d9; }
+  table { width:100%; border-collapse:collapse; margin:1rem 0; }
+  th, td { text-align:left; padding:.5rem .8rem; border-bottom:1px solid #30363d; }
+  th { color:#8b949e; font-weight:600; }
+  .btn { display:inline-block; padding:.5rem 1rem; border-radius:6px; font-weight:600; text-decoration:none; margin:.3rem; }
+  .btn-run { background:#238636; color:white; }
+  .btn-doc { background:#1f6feb; color:white; }
+  .btn-ai  { background:#a371f7; color:white; }
+  hr { border-color:#30363d; margin:2rem 0; }
+  .grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:1rem; }
+  @media (max-width:600px) { .grid { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+
+<h1>🧰 dev-env</h1>
+<p>Developer Environment Bootstrap — jeden gist, všechny stroje.</p>
+
+<div class="box green">
+  <strong>⚡ Rychlý start</strong>
+  <pre><code>irm https://gist.github.com/doma77git/&lt;id&gt;/raw/bootstrap.ps1 | iex</code></pre>
+</div>
+
+<!-- ──────────────────────────────────────────── -->
+
+<h2>🚦 Kdo jsi?</h2>
+
+<div class="grid">
+  <div class="box">
+    <span class="tag tag-human">člověk</span>
+    <strong>Chci pochopit</strong>
+    <p style="margin:.5rem 0 0"><a href="docs/architecture.md">Architektura →</a></p>
+    <p><a href="docs/workflows.md">Postupy →</a></p>
+  </div>
+  <div class="box">
+    <span class="tag tag-ai">AI</span>
+    <strong>Chci kontext</strong>
+    <p style="margin:.5rem 0 0"><a href="ai/context.md">AI context →</a></p>
+    <p><a href="ai/schema.json">JSON Schema →</a></p>
+  </div>
+  <div class="box">
+    <span class="tag tag-script">stroj</span>
+    <strong>Chci data</strong>
+    <p style="margin:.5rem 0 0"><a href="manifest.json">Manifest →</a></p>
+  </div>
+</div>
+
+<!-- ──────────────────────────────────────────── -->
+
+<h2>🔧 Akce</h2>
+
+<a class="btn btn-run" href="#">irm gist | iex</a>
+<a class="btn btn-doc" href="docs/index.md">Dokumentace</a>
+<a class="btn btn-ai" href="ai/context.md">AI kontext</a>
+
+<!-- ──────────────────────────────────────────── -->
+
+<h2>📂 Co je kde</h2>
+
+<table>
+<tr><th>Soubor</th><th>Pro</th><th>Účel</th></tr>
+<tr><td><code>bootstrap.ps1</code></td><td><span class="tag tag-script">run</span></td><td>Entry point — detect + clone + profile</td></tr>
+<tr><td><code>ai/context.md</code></td><td><span class="tag tag-ai">AI</span></td><td>Kompletní lifecycle, rozhodování, prompty</td></tr>
+<tr><td><code>ai/schema.json</code></td><td><span class="tag tag-ai">AI</span></td><td>JSON Schema reportu</td></tr>
+<tr><td><code>manifest.json</code></td><td><span class="tag tag-script">stroj</span></td><td>Autoritativní metadata + seznam souborů</td></tr>
+<tr><td><code>docs/index.md</code></td><td><span class="tag tag-human">člověk</span></td><td>Landing page</td></tr>
+<tr><td><code>docs/architecture.md</code></td><td><span class="tag tag-human">člověk</span></td><td>Jak to funguje</td></tr>
+<tr><td><code>docs/workflows.md</code></td><td><span class="tag tag-human">člověk</span></td><td>Krok za krokem</td></tr>
+<tr><td><code>profiles/*.json</code></td><td><span class="tag tag-script">stroj</span></td><td>Definice home / work / lab</td></tr>
+<tr><td><code>scripts/*.ps1</code></td><td><span class="tag tag-script">run</span></td><td>Setup, repair, test</td></tr>
+</table>
+
+<!-- ──────────────────────────────────────────── -->
+
+<h2>🤖 Pro AI agenty</h2>
+
+<div class="box">
+  <p><strong>První prompt:</strong></p>
+  <pre><code>Přečti si ai/context.md — najdeš tam všechno: lifecycle, rozhodovací strom, příkazy, prompty, OS logiku.</code></pre>
+</div>
+
+<!-- ──────────────────────────────────────────── -->
+
+<h2>👤 Pro člověka</h2>
+
+<table>
+<tr><th>Chceš…</th><th>Spusť / čti</th></tr>
+<tr><td>Zjistit stav stroje</td><td><code>irm &lt;gist&gt; | iex</code></td></tr>
+<tr><td>Opravit prostředí</td><td><code>scripts/repair.ps1 -WhatIf</code></td></tr>
+<tr><td>Nainstalovat nástroje</td><td><code>scripts/setup-home.ps1 -WhatIf</code></td></tr>
+<tr><td>Ověřit vše</td><td><code>scripts/test.ps1</code></td></tr>
+<tr><td>Otevřít menu</td><td><code>menu/menu.ps1</code></td></tr>
+<tr><td>Poslat report AI</td><td>Zkopíruj <code>~/.dev-env/report-*.json</code></td></tr>
+</table>
+
+<hr>
+
+<p style="color:#8b949e; font-size:.85rem;">
+  dev-env v1.0.0 · <a href="https://github.com/doma77git/dev-env">repo</a> ·
+  <a href="manifest.json">manifest</a> ·
+  offline-friendly
+</p>
+
+</body>
+</html>

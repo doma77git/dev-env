@@ -1,0 +1,12 @@
+[init]
+	defaultBranch = main
+
+[core]
+	autocrlf = input
+	editor = code --wait
+
+[push]
+	autoSetupRemote = true
+
+[pull]
+	rebase = true

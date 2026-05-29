@@ -1,0 +1,29 @@
+{
+  "extends": "base",
+  "description": "Testovací VM / lab — experimentální režim",
+
+  "packageManager": "scoop",
+  "proxy": null,
+  "onedrive": null,
+  "experimental": true,
+  "wsl": true,
+
+  "identity": {
+    "git": {
+      "name": "Jan Novak (LAB)",
+      "email": "jan+lab@novak.cz"
+    },
+    "github": "doma77git"
+  },
+
+  "tools": {
+    "required": ["git"],
+    "recommended": ["node", "python", "code", "gh", "pwsh", "curl", "docker", "nvim", "scoop"],
+    "optional": ["nvm", "7z"]
+  },
+
+  "paths": {
+    "projects": "~/dev/projects",
+    "personal": "~/dev/projects/osobni"
+  }
+}
