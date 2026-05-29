@@ -291,3 +291,128 @@ What should I fix?
 | `~/.dev-env/config/` | **Local only** | Never sync | — |
 | `~/.ssh/` | **Local only** | Never sync | — |
 | Configs (`~/.gitconfig`...) | Symlink from repo | `link-configs.ps1` | After setup |
+
+---
+
+## PROMPT TUNING / LADĚNÍ PROMPTŮ
+
+### For AI: "User sent me a report — what do I say?"
+
+```
+You are a dev-env assistant. User just ran bootstrap and sent you this JSON report.
+
+{ paste report here }
+
+Do THIS in order:
+1. STATUS FIRST — read `status` field. Is it "new", "same", "os-changed", or "tools-changed"?
+2. QUICK SUMMARY — one sentence. Example: "🔴 Nový stroj H11 (Windows 11, build 26200, WORKGROUP). Git, Node, Python, VS Code nalezeny."
+3. ISSUES — check `path.errors` array. List each error in plain language.
+4. NEXT STEP — based on status, tell user exactly one command to run:
+   - "new" → "Spusť: cd ~/.dev-env/repo && ./scripts/setup-home.ps1 -WhatIf"
+   - "same" → "Vše v pořádku. Můžeš spustit: ./menu/menu.ps1"
+   - "os-changed" → "Reinstal detekován. Spusť: ./scripts/setup-home.ps1 -Force"
+   - "tools-changed" → "Nová verze nástrojů. Spusť: ./scripts/test.ps1"
+
+RULES:
+- Always CZ+EN bilingual in code references
+- Never suggest committing secrets
+- Always mention -WhatIf before -Force
+- If `corporate.domainJoined: true` → mention work profile
+- If `onedrive.redirects.Desktop` exists → warn about OneDrive sync
+- If `tools.git: null` → first step is installing git
+```
+
+### For AI: "User asks 'what's wrong with my environment?'"
+
+```
+Read the report and `scripts/test.ps1` output. Categorize issues:
+
+🔴 CRITICAL (fix immediately):
+  - HOME not set → security risk, some tools break
+  - PATH duplicates > 3 → potential conflicts
+  - No SSH keys → can't connect to GitHub
+
+🟡 WARNING (fix soon):
+  - OneDrive redirects Desktop → privacy leak
+  - PATH count > 50 → slows down shell startup
+  - Missing recommended tools (docker, nvim)
+
+🔵 INFO:
+  - New tools detected (auto-updated)
+  - OS build changed (Windows Update)
+
+For each issue, suggest the EXACT repair command:
+  scripts/repair.ps1 -WhatIf  (preview)
+  scripts/repair.ps1 -Force   (apply)
+```
+
+### For AI: "User asks 'help me set up a new PC'"
+
+```
+🚨 WARNING — READ BEFORE RESPONDING:
+- NEVER suggest installing things without -WhatIf first
+- NEVER suggest `rm -rf` or `Remove-Item -Recurse -Force` on home dirs
+- ALWAYS check if the user is on a corporate machine (proxy, GPO, VPN)
+- ALWAYS explain what each command does BEFORE suggesting it
+
+Response template:
+1. "First, run bootstrap to detect your environment: irm <gist> | iex"
+2. "Send me the JSON output or paste it here."
+3. [After receiving report] "Your profile is {home|work|lab}. Here's your setup plan:"
+4. List commands with explanations
+5. "Start with: cd ~/.dev-env/repo && ./scripts/setup-{profile}.ps1 -WhatIf"
+```
+
+---
+
+## WARNINGS FOR AI / VAROVÁNÍ PRO AI
+
+| # | Rule | Why |
+|---|---|---|
+| 1 | **Never suggest `git push` of config/ or .ssh/** | Contains local secrets |
+| 2 | **Never suggest `Remove-Item -Recurse ~/`** | Destructive — could wipe user data |
+| 3 | **Always suggest -WhatIf before -Force** | User must see what will change |
+| 4 | **Never hardcode paths** | Use `$env:USERPROFILE`, `$HOME`, `~` |
+| 5 | **Corporate machine = different rules** | No winget, proxy required, VPN may be needed |
+| 6 | **`machines.json` is append-only** | Don't suggest editing it — suggest deleting if corrupt |
+| 7 | **Report JSON is the source of truth** | Always read it before suggesting actions |
+| 8 | **PowerShell 7+ required** | `profile.ps1` uses `??` operator — won't work on PS 5.1 |
+
+---
+
+## ADVANCED SCENARIOS / POKROČILÉ SCÉNÁŘE
+
+### Multi-machine sync
+```
+User has 3 machines (home PC, PPG laptop, lab VM).
+All use the same gist. Each has its own machines.json.
+
+How to keep in sync:
+1. Bootstrap runs on each machine separately
+2. Each machine has its own fingerprint → separate entries in its own machines.json
+3. Repo changes (scripts, profiles) sync via git pull
+4. Profile auto-detection ensures correct packages per machine
+5. NEVER merge machines.json across machines — they're machine-specific
+```
+
+### Corporate machine without admin
+```
+Bootstrap detects: domainJoined=true, proxy present, no winget
+→ Profile: work
+→ setup-work.ps1 (TODO) will handle:
+  - Manual installation instructions (no winget)
+  - Proxy configuration for git, npm, pip
+  - ExecutionPolicy workarounds
+  - Portable app suggestions
+```
+
+### After OS reinstall
+```
+Bootstrap detects: fingerprint same, build changed, installDate new
+→ Status: os-changed
+→ User should run:
+  1. setup-home.ps1 -Force (reinstall all packages)
+  2. repair.ps1 -Force (fix PATH, HOME)
+  3. link-configs.ps1 -Force (restore config symlinks)
+  4. test.ps1 (verify everything)
+```

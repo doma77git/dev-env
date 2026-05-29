@@ -5,6 +5,15 @@
 
 ---
 
+## ⚠️ Než začneš
+
+- **PowerShell 7+** — `profile.ps1` potřebuje `??` operátor. `winget install Microsoft.PowerShell`
+- **Git** — pro clone repa. Bez něj detekce funguje, ale `scripts/` nebudou dostupné.
+- **-WhatIf před -Force** — všechny skripty podporují suchý běh. Vždycky nejdřív `-WhatIf`.
+- **Firemní stroj** — `winget` a `irm` můžou být blokované. Bootstrap to detekuje → `work` profil.
+
+---
+
 ## ⚡ Quickstart / Rychlý start
 
 ```powershell

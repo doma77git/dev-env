@@ -26,6 +26,34 @@ cd ~/.dev-env/repo
 ./scripts/test.ps1
 ```
 
+### Očekávaný výstup
+
+```
+>>> DETECT / DETEKCE
+╔══════════════════════════════════════════╗
+║  🔴  NEW                                 ║
+║  REPO : https://github.com/doma77git/... ║
+╚══════════════════════════════════════════╝
+
+>>> CLONE / KLONUJI REPO
+  git clone ... → ~/.dev-env/repo
+
+>>> PROFILE: home (auto-detected)
+
+=== TEST ===
+  ✅  OS is Windows 10/11
+  ✅  HOME is set
+  ✅  ~/.dev-env/ exists
+  ...
+=== RESULT: 14 pass / 0 fail ===
+```
+
+### ⚠️ Varování
+
+- **Nespouštěj `-Force` bez `-WhatIf`** — nejdřív suchý běh
+- **Firemní stroj** — bootstrap detekuje `work` profil automaticky
+- **OneDrive** — `repair.ps1` varuje, pokud Desktop/Documents jsou v cloudu
+
 ---
 
 ## 🔁 Existující stroj / Existing machine
@@ -75,6 +103,13 @@ cd ~/.dev-env/repo
 # 4. Test
 ./scripts/test.ps1
 ```
+
+### ⚠️ Firemní varování
+
+- **Firewall** — `winget` a `irm` mohou být blokované → použij offline/PowerShell 5.1 fallback
+- **Proxy** — `git`, `npm`, `pip` vyžadují proxy konfiguraci → `repair.ps1` nepokrývá (TODO)
+- **GPO** — ExecutionPolicy může být vynucená → `Set-ExecutionPolicy -Scope Process`
+- **VPN** — bez VPN nemusí fungovat interní zdroje (GitLab, npm registry) → připoj VPN před bootstrapem
 
 ---
 
