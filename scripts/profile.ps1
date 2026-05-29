@@ -163,22 +163,19 @@ if ($identitySource -eq "placeholder") {
     Write-Host "           ⚠ Run: setup-$ProfileName.ps1 -Force" -ForegroundColor Red
 }
 # GitHub
-$ghUser = try { gh auth status 2>&1 | Select-String "Logged in to github.com as" } catch { $null }
-if ($ghUser) {
-    $ghAccount = ($ghUser -replace '.*as\s+','').Trim() -replace '\s.*',''
+$ghOutput = try { gh auth status 2>&1 | Out-String } catch { $null }
+if ($ghOutput -match 'Logged in to github\.com (?:as|account)\s+(\S+)') {
+    $ghAccount = $Matches[1]
     Write-Host "  GitHub   : $ghAccount (logged in)" -ForegroundColor Green
+} elseif ($ghOutput -match 'not logged in') {
+    Write-Host "  GitHub   : not logged in" -ForegroundColor Yellow
 } else {
-    $ghStatus = try { gh auth status 2>&1 | Out-String } catch { $null }
-    if ($ghStatus -match 'not logged in') {
-        Write-Host "  GitHub   : not logged in" -ForegroundColor Yellow
-    } else {
-        Write-Host "  GitHub   : unknown (gh not available)" -ForegroundColor DarkGray
-    }
+    Write-Host "  GitHub   : unknown (gh not available)" -ForegroundColor DarkGray
 }
 # SSH keys
 $sshKeys = @(Get-ChildItem "$env:USERPROFILE\.ssh\id_*" -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '^id_' -and $_.Name -notmatch '\.pub$' })
 if ($sshKeys.Count -gt 0) {
-    $keyTypes = ($sshKeys | ForEach-Object { $_.Extension -replace '^\.','' }) -join ', '
+    $keyTypes = ($sshKeys | ForEach-Object { ($_.Name -replace '^id_','') }) -join ', '
     Write-Host "  SSH keys : $($sshKeys.Count) ($keyTypes)" -ForegroundColor Green
 } else {
     Write-Host "  SSH keys : none" -ForegroundColor Yellow
