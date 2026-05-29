@@ -168,11 +168,11 @@ $report = [ordered]@{
 
 # 1k. Uložit na disk
 #     Write JSON → append to history
-$json = $report | ConvertTo-Json -Depth 5
+$json = $report | ConvertTo-Json -Depth 6
 $reportPath = Join-Path $envDir "report-$(Get-Date -Format 'yyyy-MM-dd-HHmmss').json"
 $json | Set-Content -Path $reportPath -Encoding UTF8
 $machines += $report
-$machines | ConvertTo-Json -Depth 5 | Set-Content -Path $machinesFile -Encoding UTF8
+$machines | ConvertTo-Json -Depth 6 | Set-Content -Path $machinesFile -Encoding UTF8
 
 # ═══ 2. OUTPUT — status do konzole ═══════════════════════════
 #         Výstup pro uživatele
