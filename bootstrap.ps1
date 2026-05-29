@@ -191,7 +191,7 @@ Write-Host "╚═════════════════════�
 if ($tools.git -ne $null) {
     Write-Host ""
     Write-Host ">>> CLONE / KLONUJI REPO" -ForegroundColor Cyan
-    if (Test-Path $RepoDir) {
+    if ((Test-Path $RepoDir) -and (Test-Path "$RepoDir\.git")) {
         Write-Host "  Already exists / Repo existuje — pulling ..." -ForegroundColor Yellow
         try {
             git -C $RepoDir fetch origin
@@ -203,6 +203,12 @@ if ($tools.git -ne $null) {
                 git -C $RepoDir branch --set-upstream-to=origin/master master 2>$null
             }
         } catch { Write-Host "  Pull failed / selhal: $_" -ForegroundColor Red }
+    } elseif (Test-Path $RepoDir) {
+        # Directory exists but not a git repo (partial cleanup) — remove and reclone
+        Write-Host "  Broken repo / poškozené repo — removing ..." -ForegroundColor Yellow
+        try { Remove-Item $RepoDir -Recurse -Force -ErrorAction SilentlyContinue } catch {}
+        Write-Host "  git clone -b master $RepoUrl $RepoDir" -ForegroundColor Yellow
+        try { git clone -b master $RepoUrl $RepoDir } catch { Write-Host "  Clone failed / selhal: $_" -ForegroundColor Red }
     } else {
         Write-Host "  git clone -b master $RepoUrl $RepoDir" -ForegroundColor Yellow
         try { git clone -b master $RepoUrl $RepoDir } catch { Write-Host "  Clone failed / selhal: $_" -ForegroundColor Red }
