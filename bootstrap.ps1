@@ -18,9 +18,9 @@ $RepoUrl  = "https://github.com/doma77git/dev-env"                # REPO — kam
 $RepoDir  = Join-Path $env:USERPROFILE ".dev-env/repo"         # LOCAL — kam se klonuje
 $ErrorActionPreference = "Continue"                             # NEPADAT — pokračovat i při chybě
 
-# ═══ 1. DETECT — inventura stroje (self‑contained, no git) ═══
+# ═══ PHASE 1/7 — DETECT — inventura stroje (self‑contained, no git) ═══
 #         Inventory — nepotřebuje git, vše je uvnitř
-Write-Host ">>> DETECT / DETEKCE" -ForegroundColor Cyan
+Write-Host ">>> PHASE 1/7 — DETECT / DETEKCE" -ForegroundColor Cyan
 
 # 1a. Output dir — kam ukládáme reporty
 #     Výstupní složka
@@ -148,6 +148,12 @@ if ($previous) {
 # 1j. Report — sestavit JSON
 #     Strukturovaný výstup pro AI i člověka
 $report = [ordered]@{
+    pipeline = [ordered]@{
+        phases    = @("detect","report","clone","profile","setup","repair","test")
+        completed = @("detect","report","clone","profile")
+        next      = "setup"
+        total     = 7
+    }
     meta = [ordered]@{
         bootstrap = "1.0.0"
         at        = (Get-Date -Format "yyyy-MM-ddTHH:mm:ss")
@@ -174,10 +180,11 @@ $json | Set-Content -Path $reportPath -Encoding UTF8
 $machines += $report
 $machines | ConvertTo-Json -Depth 6 | Set-Content -Path $machinesFile -Encoding UTF8
 
-# ═══ 2. OUTPUT — status do konzole ═══════════════════════════
+# ═══ PHASE 2/7 — REPORT — uložit JSON + zobrazit status ═════
 #         Výstup pro uživatele
 $icon = @{ "new"="🔴"; "same"="🟢"; "os-changed"="🟠"; "tools-changed"="🟡" }
 Write-Host ""
+Write-Host ">>> PHASE 2/7 — REPORT / VÝSLEDEK" -ForegroundColor Cyan
 Write-Host "╔══════════════════════════════════════════╗" -ForegroundColor Cyan
 Write-Host "║  $($icon[$status])  $($status.ToUpper())" -ForegroundColor White
 foreach ($c in $changes) { Write-Host "║    $c" -ForegroundColor Yellow }
@@ -186,11 +193,11 @@ Write-Host "║  REPO : $RepoUrl" -ForegroundColor Cyan
 Write-Host "║  RPT  : $reportPath" -ForegroundColor Yellow
 Write-Host "╚══════════════════════════════════════════╝" -ForegroundColor Cyan
 
-# ═══ 3. CLONE — stáhnout repo (jen když git existuje) ════════
+# ═══ PHASE 3/7 — CLONE — stáhnout repo (jen když git existuje) ═══
 #         git clone → ~/.dev-env/repo/
 if ($tools.git -ne $null) {
     Write-Host ""
-    Write-Host ">>> CLONE / KLONUJI REPO" -ForegroundColor Cyan
+    Write-Host ">>> PHASE 3/7 — CLONE / KLONUJI REPO" -ForegroundColor Cyan
     if ((Test-Path $RepoDir) -and (Test-Path "$RepoDir\.git")) {
         Write-Host "  Already exists / Repo existuje — pulling ..." -ForegroundColor Yellow
         try {
@@ -215,17 +222,17 @@ if ($tools.git -ne $null) {
     }
     Write-Host "  Repo: $RepoDir" -ForegroundColor Green
 
-    # ═══ 3a. PROFILE — detekce profilu (home/work/lab) ═══════
+    # ═══ PHASE 4/7 — PROFILE — detekce (home/work/lab) ═══════
     $profileScript = Join-Path $RepoDir "scripts\profile.ps1"
     if (Test-Path $profileScript) {
         Write-Host ""
         . $profileScript -WhatIf:$WhatIf
     }
 
-    # ═══ 3b. SETUP DRY-RUN — když -WhatIf, automaticky spustit setup suchý běh ═══
+    # ═══ PHASE 5/7 — SETUP (dry-run only) — když -WhatIf, automaticky ═══
     if ($WhatIf -and $ProfileName) {
         Write-Host ""
-        Write-Host ">>> DRY-RUN SETUP / SUCHÝ BĚH INSTALACE" -ForegroundColor Magenta
+        Write-Host ">>> PHASE 5/7 — SETUP (dry-run) / SUCHÝ BĚH INSTALACE" -ForegroundColor Magenta
         $setupScript = Join-Path $RepoDir "scripts\setup-$ProfileName.ps1"
         if (Test-Path $setupScript) {
             & $setupScript -WhatIf
@@ -236,10 +243,10 @@ if ($tools.git -ne $null) {
     }
 } else {
     Write-Host ""
-    Write-Host ">>> GIT NOT FOUND / GIT NENALEZEN — skipping clone" -ForegroundColor DarkYellow
+    Write-Host ">>> PHASE 3/7 — GIT NOT FOUND / GIT NENALEZEN — skipping" -ForegroundColor DarkYellow
     Write-Host "  Install git and run bootstrap again. / Nainstaluj git a spus bootstrap znovu." -ForegroundColor DarkYellow
 }
 
-# ═══ 4. RAW JSON — pro kopírování AI agentovi ════════════════
+# ═══ RAW JSON — pro kopírování AI agentovi ═══════════════════
 Write-Host ""
 Write-Host $json

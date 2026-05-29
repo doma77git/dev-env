@@ -27,10 +27,10 @@ Get-ChildItem "$profilesDir/*.json" | ForEach-Object {
 # 2. Manual override / ruční přepsání
 if ($Set -and $profiles[$Set]) {
     $ProfileName = $Set
-    Write-Host ">>> PROFILE: $ProfileName (manual override)" -ForegroundColor Cyan
+    Write-Host ">>> PHASE 4/7 — PROFILE: $ProfileName (manual override)" -ForegroundColor Cyan
 } elseif (Test-Path "$configDir/profile.json") {
     $ProfileName = (Get-Content "$configDir/profile.json" -Raw | ConvertFrom-Json).profile
-    Write-Host ">>> PROFILE: $ProfileName (saved)" -ForegroundColor Cyan
+    Write-Host ">>> PHASE 4/7 — PROFILE: $ProfileName (saved)" -ForegroundColor Cyan
 } else {
     # 3. Auto-detect / automatická detekce
     # Firemní signály
@@ -54,7 +54,7 @@ if ($Set -and $profiles[$Set]) {
         $ProfileName = "home"
         $detectReason = "no domain, no proxy, no VM"
     }
-    Write-Host ">>> PROFILE: $ProfileName (auto-detected)" -ForegroundColor Cyan
+    Write-Host ">>> PHASE 4/7 — PROFILE: $ProfileName (auto-detected)" -ForegroundColor Cyan
     Write-Host "  Reason   : $detectReason" -ForegroundColor DarkGray
 }
 
@@ -132,7 +132,7 @@ $profileLabel = @{ "home"="HOME — personal PC"; "work"="CORP — corporate PC"
 $profileColor = @{ "home"="Green"; "work"="Yellow"; "lab"="Magenta" }
 
 Write-Host ""
-Write-Host "  ── SYSTEM ──────────────────────────────────" -ForegroundColor DarkCyan
+Write-Host "  4.1 ── SYSTEM ──────────────────────────────────" -ForegroundColor DarkCyan
 Write-Host "  OS       : $($osInfo.Caption) (build $($osInfo.BuildNumber))" -ForegroundColor Gray
 Write-Host "  Hostname : $env:COMPUTERNAME" -ForegroundColor Gray
 $domainLabel = if ($csInfo.PartOfDomain) { "$($csInfo.Domain) (domain-joined)" } else { "$($csInfo.Domain) (workgroup)" }
@@ -146,7 +146,7 @@ if ($ProfileData.restrictions) {
     }
 }
 
-Write-Host "  ── USER ────────────────────────────────────" -ForegroundColor DarkCyan
+Write-Host "  4.2 ── USER ────────────────────────────────────" -ForegroundColor DarkCyan
 $whoami = "$env:USERDOMAIN\$env:USERNAME"
 Write-Host "  Account  : $whoami" -ForegroundColor Gray
 if ($csInfo.PartOfDomain) {
@@ -155,7 +155,7 @@ if ($csInfo.PartOfDomain) {
     Write-Host "  Type     : Local account" -ForegroundColor Gray
 }
 
-Write-Host "  ── IDENTITIES ──────────────────────────────" -ForegroundColor DarkCyan
+Write-Host "  4.3 ── IDENTITIES ──────────────────────────────" -ForegroundColor DarkCyan
 $identityColor = if ($identitySource -eq "placeholder") { "Red" } elseif ($identitySource -eq "git-config") { "Green" } else { "Yellow" }
 $gitLabel = if ($identitySource -eq "placeholder") { "$($ProfileData.identity.git.email) ⚠ PLACEHOLDER" } else { "$($ProfileData.identity.git.name) <$($ProfileData.identity.git.email)>" }
 Write-Host "  Git      : $gitLabel ($identitySource)" -ForegroundColor $identityColor
@@ -181,7 +181,7 @@ if ($sshKeys.Count -gt 0) {
     Write-Host "  SSH keys : none" -ForegroundColor Yellow
 }
 
-Write-Host "  ── TOOLS ───────────────────────────────────" -ForegroundColor DarkCyan
+Write-Host "  4.4 ── TOOLS ───────────────────────────────────" -ForegroundColor DarkCyan
 Write-Host "  Proxy    : $($ProfileData.proxy ?? 'none')" -ForegroundColor Gray
 Write-Host "  Package  : $($ProfileData.packageManager ?? 'manual')" -ForegroundColor Gray
 
