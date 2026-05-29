@@ -1,6 +1,6 @@
 #!/usr/bin/env pwsh
 # === bootstrap.ps1 ============================================
-# URL:    https://gist.github.com/doma77git/<id>
+# URL:    https://gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5
 # ROLE:   Detect environment + point to repo + clone (if git)
 #         Detekce prostředí + pointer na repo + clone (pokud git)
 # RUN:    irm <url> | iex                                      (Windows)

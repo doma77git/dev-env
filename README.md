@@ -22,12 +22,12 @@
 
 ```powershell
 # Windows
-irm https://gist.github.com/doma77git/<id>/raw/bootstrap.ps1 | iex
+irm https://gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/raw/bootstrap.ps1 | iex
 ```
 
 ```bash
 # Linux / WSL
-curl -fsSL https://gist.github.com/doma77git/<id>/raw/bootstrap.sh | bash
+curl -fsSL https://gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/raw/bootstrap.sh | bash
 ```
 
 ---

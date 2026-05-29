@@ -6,7 +6,7 @@
 
 ```powershell
 # 1. Bootstrap
-irm https://gist.github.com/doma77git/<id>/raw/bootstrap.ps1 | iex
+irm https://gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/raw/bootstrap.ps1 | iex
 
 # 2. Zkontroluj profil
 cd ~/.dev-env/repo
@@ -32,7 +32,7 @@ cd ~/.dev-env/repo
 
 ```powershell
 # 1. Bootstrap (detekuje změny)
-irm https://gist.github.com/doma77git/<id>/raw/bootstrap.ps1 | iex
+irm https://gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/raw/bootstrap.ps1 | iex
 
 # 2. Menu → pull + volby
 cd ~/.dev-env/repo
@@ -45,7 +45,7 @@ cd ~/.dev-env/repo
 
 ```powershell
 # Bootstrap detekuje os-changed
-irm https://gist.github.com/doma77git/<id>/raw/bootstrap.ps1 | iex
+irm https://gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/raw/bootstrap.ps1 | iex
 
 # Plná instalace
 cd ~/.dev-env/repo
@@ -61,7 +61,7 @@ cd ~/.dev-env/repo
 
 ```powershell
 # 1. Bootstrap
-irm https://gist.github.com/doma77git/<id>/raw/bootstrap.ps1 | iex
+irm https://gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/raw/bootstrap.ps1 | iex
 
 # 2. Profil → work (auto)
 cd ~/.dev-env/repo
@@ -82,7 +82,7 @@ cd ~/.dev-env/repo
 
 ```powershell
 # Bootstrap detekuje VMware/VirtualBox → lab
-irm https://gist.github.com/doma77git/<id>/raw/bootstrap.ps1 | iex
+irm https://gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/raw/bootstrap.ps1 | iex
 
 # WSL, scoop, experimenty
 cd ~/.dev-env/repo

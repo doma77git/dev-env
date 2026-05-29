@@ -79,7 +79,7 @@ USER runs: irm <gist> | iex
 ### When user says: "I have a new PC" / "Mám nový počítač"
 ```
 Run this in PowerShell:
-  irm https://gist.github.com/doma77git/<id>/raw/bootstrap.ps1 | iex
+  irm https://gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/raw/bootstrap.ps1 | iex
 Then:
   cd ~/.dev-env/repo
   ./scripts/setup-home.ps1 -WhatIf    (review)
