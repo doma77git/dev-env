@@ -9,7 +9,7 @@ param([switch]$Force, [switch]$WhatIf)
 
 $profile = Get-Content (Join-Path $PSScriptRoot ".." "profiles" "lab.json") -Raw | ConvertFrom-Json
 
-Write-Host ">>> PHASE 5/7 — SETUP (lab) / INSTALACE VM" -ForegroundColor Green
+Write-Host ">>> PHASE 5/7 — PACKAGE SETUP (lab) / INSTALACE VM" -ForegroundColor Green
 Write-Host ""
 
 # 1. WSL enable

@@ -20,7 +20,7 @@ $ErrorActionPreference = "Continue"                             # NEPADAT — po
 
 # ═══ PHASE 1/7 — DETECT — inventura stroje (self‑contained, no git) ═══
 #         Inventory — nepotřebuje git, vše je uvnitř
-Write-Host ">>> PHASE 1/7 — DETECT / DETEKCE" -ForegroundColor Cyan
+Write-Host ">>> PHASE 1/7 — ENVIRONMENT DETECT / DETEKCE" -ForegroundColor Cyan
 
 # 1a. Output dir — kam ukládáme reporty
 #     Výstupní složka
@@ -149,9 +149,9 @@ if ($previous) {
 #     Strukturovaný výstup pro AI i člověka
 $report = [ordered]@{
     pipeline = [ordered]@{
-        phases    = @("detect","report","clone","profile","setup","repair","test")
-        completed = @("detect","report","clone","profile")
-        next      = "setup"
+        phases    = [ordered]@{ "1"="environment-detect"; "2"="inventory-report"; "3"="repository-clone"; "4"="profile-identity"; "5"="package-setup"; "6"="environment-repair"; "7"="validation-test" }
+        completed = @("1","2","3","4")
+        next      = "5"
         total     = 7
     }
     meta = [ordered]@{
@@ -184,7 +184,7 @@ $machines | ConvertTo-Json -Depth 6 | Set-Content -Path $machinesFile -Encoding 
 #         Výstup pro uživatele
 $icon = @{ "new"="🔴"; "same"="🟢"; "os-changed"="🟠"; "tools-changed"="🟡" }
 Write-Host ""
-Write-Host ">>> PHASE 2/7 — REPORT / VÝSLEDEK" -ForegroundColor Cyan
+Write-Host ">>> PHASE 2/7 — INVENTORY REPORT / VÝSLEDEK" -ForegroundColor Cyan
 Write-Host "╔══════════════════════════════════════════╗" -ForegroundColor Cyan
 Write-Host "║  $($icon[$status])  $($status.ToUpper())" -ForegroundColor White
 foreach ($c in $changes) { Write-Host "║    $c" -ForegroundColor Yellow }
@@ -197,7 +197,7 @@ Write-Host "╚═════════════════════�
 #         git clone → ~/.dev-env/repo/
 if ($tools.git -ne $null) {
     Write-Host ""
-    Write-Host ">>> PHASE 3/7 — CLONE / KLONUJI REPO" -ForegroundColor Cyan
+    Write-Host ">>> PHASE 3/7 — REPOSITORY CLONE / KLONOVÁNÍ" -ForegroundColor Cyan
     if ((Test-Path $RepoDir) -and (Test-Path "$RepoDir\.git")) {
         Write-Host "  Already exists / Repo existuje — pulling ..." -ForegroundColor Yellow
         try {
@@ -232,7 +232,7 @@ if ($tools.git -ne $null) {
     # ═══ PHASE 5/7 — SETUP (dry-run only) — když -WhatIf, automaticky ═══
     if ($WhatIf -and $ProfileName) {
         Write-Host ""
-        Write-Host ">>> PHASE 5/7 — SETUP (dry-run) / SUCHÝ BĚH INSTALACE" -ForegroundColor Magenta
+        Write-Host ">>> PHASE 5/7 — PACKAGE SETUP (dry-run) / SUCHÁ INSTALACE" -ForegroundColor Magenta
         $setupScript = Join-Path $RepoDir "scripts\setup-$ProfileName.ps1"
         if (Test-Path $setupScript) {
             & $setupScript -WhatIf

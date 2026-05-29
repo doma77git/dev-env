@@ -7,7 +7,7 @@
 $ErrorActionPreference = "Continue"
 $pass = 0; $fail = 0
 
-Write-Host ">>> PHASE 7/7 — TEST / OVĚŘENÍ" -ForegroundColor Green
+Write-Host ">>> PHASE 7/7 — VALIDATION TEST / OVĚŘENÍ" -ForegroundColor Green
 Write-Host ""
 
 function check($label, $condition, $fix) {

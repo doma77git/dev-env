@@ -27,10 +27,10 @@ Get-ChildItem "$profilesDir/*.json" | ForEach-Object {
 # 2. Manual override / ruční přepsání
 if ($Set -and $profiles[$Set]) {
     $ProfileName = $Set
-    Write-Host ">>> PHASE 4/7 — PROFILE: $ProfileName (manual override)" -ForegroundColor Cyan
+    Write-Host ">>> PHASE 4/7 — PROFILE & IDENTITY: $ProfileName (manual override)" -ForegroundColor Cyan
 } elseif (Test-Path "$configDir/profile.json") {
     $ProfileName = (Get-Content "$configDir/profile.json" -Raw | ConvertFrom-Json).profile
-    Write-Host ">>> PHASE 4/7 — PROFILE: $ProfileName (saved)" -ForegroundColor Cyan
+    Write-Host ">>> PHASE 4/7 — PROFILE & IDENTITY: $ProfileName (saved)" -ForegroundColor Cyan
 } else {
     # 3. Auto-detect / automatická detekce
     # Firemní signály
@@ -54,7 +54,7 @@ if ($Set -and $profiles[$Set]) {
         $ProfileName = "home"
         $detectReason = "no domain, no proxy, no VM"
     }
-    Write-Host ">>> PHASE 4/7 — PROFILE: $ProfileName (auto-detected)" -ForegroundColor Cyan
+    Write-Host ">>> PHASE 4/7 — PROFILE & IDENTITY: $ProfileName (auto-detected)" -ForegroundColor Cyan
     Write-Host "  Reason   : $detectReason" -ForegroundColor DarkGray
 }
 

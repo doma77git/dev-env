@@ -9,7 +9,7 @@ param([switch]$Force, [switch]$WhatIf)
 
 $profile = Get-Content (Join-Path $PSScriptRoot ".." "profiles" "home.json") -Raw | ConvertFrom-Json
 
-Write-Host ">>> PHASE 5/7 — SETUP (home) / INSTALACE" -ForegroundColor Green
+Write-Host ">>> PHASE 5/7 — PACKAGE SETUP (home) / INSTALACE" -ForegroundColor Green
 Write-Host "  Home PC — winget install, folders, git config, autocrlf" -ForegroundColor DarkGray
 Write-Host ""
 

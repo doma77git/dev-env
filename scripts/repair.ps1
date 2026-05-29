@@ -7,7 +7,7 @@
 # ==============================================================
 param([switch]$Force, [switch]$WhatIf)
 
-Write-Host ">>> PHASE 6/7 — REPAIR / OPRAVY" -ForegroundColor Green
+Write-Host ">>> PHASE 6/7 — ENVIRONMENT REPAIR / OPRAVY" -ForegroundColor Green
 $fixes = 0; $issues = 0
 
 # 1. HOME env variable
