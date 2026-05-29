@@ -68,7 +68,7 @@ curl -fsSL https://gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/ra
   Proxy    : none
   Package  : winget
 
-  Use / Pouzij:  scripts/setup-home.ps1 -WhatIf
+  Use / Pouzij:  scripts/50-setup-home.ps1 -WhatIf
 ```
 
 ---
@@ -76,21 +76,23 @@ curl -fsSL https://gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/ra
 ## 🔄 Co se stane
 
 ```
-irm | iex  →  detect  →  report  →  clone  →  profile  →  setup  →  repair  →  test
-                                                                              ↓
-                                                                         menu.ps1
+irm | iex
+  ├─ PS7? ──ano──▶ PHASE 00 → 10 → 20 → 30 → 40 → 50 setup dry-run
+  └─ PS5? ──────▶ 00-bootstrap-fallback.ps1 → nainstaluje pwsh+wt+git
+                     └─▶ pwsh → hlavní pipeline
 ```
 
-| Krok | Skript | Stav | Popis |
+| Fáze | Skript | Stav | Popis |
 |---|---|---|---|
-| **1. Detect** | `bootstrap.ps1` (gist) | ✅ | Fingerprint, OS, nástroje, PATH, OneDrive, firemní signály |
-| **2. Report** | → `~/.dev-env/report-*.json` | ✅ | JSON pro AI i člověka |
-| **3. Clone** | → `~/.dev-env/repo/` | ✅ | `git clone` repa (vyžaduje git) |
-| **4. Profile** | `scripts/profile.ps1` | ✅ | home / work / lab — auto-detekce |
-| **5. Setup** | `scripts/setup-home.ps1` | ✅ home | Winget, složky, git, symlinky |
-| **6. Repair** | `scripts/repair.ps1` | ✅ | PATH, HOME, OneDrive, SSH |
-| **7. Test** | `scripts/test.ps1` | ✅ | 14 kontrol — exit 0 = pass |
-| **8. Menu** | `menu/menu.ps1` | ✅ | Interaktivní rozcestník |
+| **00. Bootstrap** | `bootstrap.ps1` (gist) | ✅ | Entry point, gist URL, hand-off do fáze 10 |
+| **10. Detect** | `bootstrap.ps1` inline | ✅ | Fingerprint, OS, nástroje, PATH, OneDrive, firemní signály |
+| **20. Report** | → `~/.dev-env/report-*.json` | ✅ | JSON pro AI i člověka |
+| **30. Clone** | → `~/.dev-env/repo/` | ✅ | `git clone` repa (vyžaduje git) |
+| **40. Profile** | `scripts/40-profile.ps1` | ✅ | home / work / lab — auto-detekce |
+| **50. Setup** | `scripts/50-setup-home.ps1` | ✅ home | Winget, složky, git, symlinky |
+| **60. Repair** | `scripts/60-repair.ps1` | ✅ | PATH, HOME, OneDrive, SSH |
+| **70. Test** | `scripts/70-test.ps1` | ✅ | 14 kontrol — exit 0 = pass |
+| **Menu** | `menu/menu.ps1` | ✅ | Interaktivní rozcestník |
 
 ---
 
@@ -122,10 +124,13 @@ irm | iex  →  detect  →  report  →  clone  →  profile  →  setup  →  
    │   └── profile.json          ← uložený profil (home/work/lab)
    └── repo/                     ← git clone repa (sem chodíš pro scripts/)
        ├── scripts/
-       │   ├── profile.ps1       ← cd ~/.dev-env/repo && ./scripts/profile.ps1
-       │   ├── setup-home.ps1
-       │   ├── repair.ps1
-       │   ├── test.ps1
+       │   ├── 00-bootstrap-fallback.ps1  ← PS5 fallback
+       │   ├── 40-profile.ps1
+       │   ├── 50-setup-home.ps1
+       │   ├── 50-setup-lab.ps1
+       │   ├── 50-setup-work.ps1
+       │   ├── 60-repair.ps1
+       │   ├── 70-test.ps1
        │   └── link-configs.ps1
        ├── menu/menu.ps1
        ├── ai/ docs/ profiles/
@@ -149,20 +154,20 @@ irm https://gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/raw/boots
 cd ~/.dev-env/repo
 
 # 4. Zkontroluj profil
-./scripts/profile.ps1
+./scripts/40-profile.ps1
 
 # 5. Suchý běh instalace — uvidíš, co se nainstaluje
-./scripts/setup-home.ps1 -WhatIf
+./scripts/50-setup-home.ps1 -WhatIf
 
 # 6. Instaluj (až budeš připraven)
-./scripts/setup-home.ps1 -Force
+./scripts/50-setup-home.ps1 -Force
 
 # 7. Oprav problémy
-./scripts/repair.ps1 -WhatIf
-./scripts/repair.ps1 -Force
+./scripts/60-repair.ps1 -WhatIf
+./scripts/60-repair.ps1 -Force
 
 # 8. Otestuj
-./scripts/test.ps1
+./scripts/70-test.ps1
 
 # 9. Otevři menu
 ./menu/menu.ps1
@@ -197,12 +202,13 @@ cd ~/.dev-env/repo
 | `docs/workflows.md` | 👤 Člověk | Krok za krokem |
 | `index.html` | 👤 Offline | Lokální landing (otevři v prohlížeči) |
 | `profiles/*.json` | ⚙️ Stroj | Definice home / work / lab |
-| `scripts/setup-home.ps1` | 🔧 Spustit | Home PC — winget, dirs, git, autocrlf |
-| `scripts/setup-work.ps1` | 🔧 Spustit | Corporate PC — proxy, VPN, manual |
-| `scripts/setup-lab.ps1`  | 🔧 Spustit | Lab VM — WSL, scoop, experimental |
-| `scripts/repair.ps1`     | 🔧 Spustit | Opravy PATH, HOME, OneDrive, SSH |
-| `scripts/test.ps1`       | 🔧 Spustit | 14 kontrol, exit 0 = pass |
-| `scripts/profile.ps1`    | 🔧 Spustit | Detekce profilu home/work/lab |
+| `scripts/00-bootstrap-fallback.ps1` | 🔧 Spustit | PS5 fallback — nainstaluje pwsh+wt+git |
+| `scripts/40-profile.ps1`  | 🔧 Spustit | Detekce profilu home/work/lab |
+| `scripts/50-setup-home.ps1` | 🔧 Spustit | Home PC — winget, dirs, git, autocrlf |
+| `scripts/50-setup-work.ps1` | 🔧 Spustit | Corporate PC — proxy, VPN, manual |
+| `scripts/50-setup-lab.ps1`  | 🔧 Spustit | Lab VM — WSL, scoop, experimental |
+| `scripts/60-repair.ps1`     | 🔧 Spustit | Opravy PATH, HOME, OneDrive, SSH |
+| `scripts/70-test.ps1`       | 🔧 Spustit | 14 kontrol, exit 0 = pass |
 | `scripts/link-configs.ps1` | 🔧 Spustit | Symlink konfigů z repa |
 | `configs/*` | 🔧 Spustit | Sdílené konfigy (git, pwsh) |
 | `menu/menu.ps1` | 🔧 Spustit | Interaktivní menu |
@@ -242,11 +248,13 @@ cd ~/.dev-env/repo
 | ✅ | Profil výstup — 3 sekce: SYSTEM / USER / IDENTITIES |
 | ✅ | Identita — auto-detekce z git configu (ne placeholder) |
 | ✅ | GitHub + SSH detekce v profilu |
-| ✅ | `scripts/setup-home.ps1` — winget, složky, git, symlinky |
-| ✅ | `scripts/setup-work.ps1` — firemní instalace (proxy, VPN, manual) |
-| ✅ | `scripts/setup-lab.ps1` — testovací VM (WSL, scoop) |
-| ✅ | `scripts/repair.ps1` — PATH, HOME, OneDrive, SSH |
-| ✅ | `scripts/test.ps1` — 14 kontrol |
+| ✅ | Phase numbering 00–70 (step 10) — prostor pro sub-fáze |
+| ✅ | `scripts/00-bootstrap-fallback.ps1` — PS5 fallback (check→recommend→try→run) |
+| ✅ | `scripts/50-setup-home.ps1` — winget, složky, git, symlinky |
+| ✅ | `scripts/50-setup-work.ps1` — firemní instalace (proxy, VPN, manual) |
+| ✅ | `scripts/50-setup-lab.ps1` — testovací VM (WSL, scoop) |
+| ✅ | `scripts/60-repair.ps1` — PATH, HOME, OneDrive, SSH |
+| ✅ | `scripts/70-test.ps1` — 14 kontrol |
 | ✅ | Menu — interaktivní rozcestník |
 | ✅ | AI context — lifecycle, prompty, OS logika |
 | ✅ | Deep merge v `profile.ps1` — rekurzivní merge |

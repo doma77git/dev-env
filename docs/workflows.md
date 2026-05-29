@@ -10,20 +10,20 @@ irm https://gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/raw/boots
 
 # 2. Zkontroluj profil
 cd ~/.dev-env/repo
-./scripts/profile.ps1
+./scripts/40-profile.ps1
 
 # 3. Suchý běh instalace
-./scripts/setup-home.ps1 -WhatIf
+./scripts/50-setup-home.ps1 -WhatIf
 
 # 4. Instaluj
-./scripts/setup-home.ps1 -Force
+./scripts/50-setup-home.ps1 -Force
 
 # 5. Oprav
-./scripts/repair.ps1 -WhatIf
-./scripts/repair.ps1 -Force
+./scripts/60-repair.ps1 -WhatIf
+./scripts/60-repair.ps1 -Force
 
 # 6. Otestuj
-./scripts/test.ps1
+./scripts/70-test.ps1
 ```
 
 ### Očekávaný výstup
@@ -77,10 +77,10 @@ irm https://gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/raw/boots
 
 # Plná instalace
 cd ~/.dev-env/repo
-./scripts/setup-home.ps1 -Force
-./scripts/repair.ps1 -Force
+./scripts/50-setup-home.ps1 -Force
+./scripts/60-repair.ps1 -Force
 ./scripts/link-configs.ps1 -Force
-./scripts/test.ps1
+./scripts/70-test.ps1
 ```
 
 ---
@@ -93,7 +93,7 @@ irm https://gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/raw/boots
 
 # 2. Profil → work (auto)
 cd ~/.dev-env/repo
-./scripts/profile.ps1
+./scripts/40-profile.ps1
 
 # 3. Review omezení
 #    - no winget → manuální instalace
@@ -121,7 +121,7 @@ irm https://gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/raw/boots
 
 # WSL, scoop, experimenty
 cd ~/.dev-env/repo
-./scripts/profile.ps1
+./scripts/40-profile.ps1
 ```
 
 ---

@@ -27,21 +27,24 @@
 ```
 bootstrap.ps1 (GIST)
   │
-  ├─ 1. DETECT ──────────────────────────
+  ├─ 00. BOOTSTRAP ──────────────────────
+  │   gist URL, hand-off
+  │
+  ├─ 10. DETECT ─────────────────────────
   │   fingerprint, OS, tools, PATH,
   │   OneDrive, corporate
   │   → JSON report
   │
-  ├─ 2. OUTPUT ──────────────────────────
+  ├─ 20. OUTPUT ─────────────────────────
   │   status + JSON → konzole
   │   → ~/.dev-env/report-*.json
   │   → ~/.dev-env/machines.json (append)
   │
-  ├─ 3. CLONE (if git exists) ───────────
+  ├─ 30. CLONE (if git exists) ──────────
   │   git clone → ~/.dev-env/repo/
   │
-  └─ 4. PROFILE ─────────────────────────
-      scripts/profile.ps1
+  └─ 40. PROFILE ────────────────────────
+      scripts/40-profile.ps1
       → domain, proxy, manufacturer
       → home | work | lab
       → ~/.dev-env/config/profile.json
@@ -72,10 +75,11 @@ Uživatel může přepsat:  -Set home|work|lab
 
 | Stav | Položka |
 |---|---|
-| 🟠 | `setup-work.ps1` — firemní instalace |
-| 🟠 | `setup-lab.ps1` — testovací VM |
-| 🟠 | Deep merge v `profile.ps1` |
-| 🟠 | Git push — email privacy fix |
+| ✅ | Phase numbering 00–70 (step 10) |
+| ✅ | `50-setup-work.ps1` — firemní instalace |
+| ✅ | `50-setup-lab.ps1` — testovací VM |
+| ✅ | Deep merge v `40-profile.ps1` |
+| ✅ | `00-bootstrap-fallback.ps1` — PS5 fallback |
 
 ---
 
