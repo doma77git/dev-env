@@ -24,15 +24,20 @@ One gist, one repo, all machines. Detects, reports, repairs, tests.
 
 ```
 USER runs:
-  irm <gist>/bootstrap.ps1 | iex          (Windows)
+  irm <gist>/bootstrap.ps1 | iex          (Windows — ostrý run)
+  $env:DEV_ENV_WHATIF='1'; irm ... | iex   (Windows — dry-run)
+  ./bootstrap.ps1 -WhatIf                  (Windows — local dry-run)
   curl -fsSL <gist>/bootstrap.sh | bash   (Linux/WSL)
 
 WHAT HAPPENS:
   bootstrap.*
     → 1. DETECT (self-contained, no dependencies)
     → 2. REPORT (JSON → stdout + ~/.dev-env/)
-    → 3. CLONE (git clone repo → ~/.dev-env/repo/)
+    → 3. CLONE (git clone -b master → ~/.dev-env/repo/)
     → 4. PROFILE (scripts/profile.ps1 → home|work|lab)
+         → 3-sekční výstup: SYSTEM / USER / IDENTITIES
+         → Identita: saved > git-config > placeholder
+    → 5. SETUP DRY-RUN (když -WhatIf: auto-chain do setup-<profile>.ps1 -WhatIf)
 
   AFTER CLONE — user can run:
     → scripts/setup-<profile>.ps1 [-WhatIf|-Force]
@@ -47,29 +52,41 @@ WHAT HAPPENS:
 ## DECISION TREE / ROZHODOVACÍ STROM
 
 ```
-USER runs: irm <gist> | iex
+USER runs: irm <gist> | iex  (nebo s $env:DEV_ENV_WHATIF='1')
+  │
+  ├─ $env:DEV_ENV_WHATIF='1'?
+  │   → >>> DRY-RUN MODE
+  │   → detect proběhne normálně (report se uloží)
+  │   → profile běží s -WhatIf (neukládá se)
+  │   → auto-chain: setup-<profile>.ps1 -WhatIf
   │
   ├─ ~/.dev-env/ DOESN'T EXIST?
   │   → status: 🔴 new
   │   → full detect
-  │   → clone repo
+  │   → clone repo (git clone -b master)
   │   → detect profile
   │
   ├─ ~/.dev-env/ EXISTS?
   │   ├─ fingerprint MATCH?
   │   │   ├─ build CHANGED?   → 🟠 os-changed (reinstall/upgrade)
-  │   │   ├─ tools CHANGED?   → 🟡 tools-changed
+  │   │   ├─ tools CHANGED?   → 🟡 tools-changed (robustní porovnávač)
   │   │   └─ NOTHING CHANGED? → 🟢 same
   │   │
   │   └─ fingerprint NO MATCH?
   │       → 🔴 new (different machine/user)
   │
+  ├─ CLONE — repo handling:
+  │   ├─ repo/ + .git existuje → git fetch + checkout master + pull
+  │   ├─ repo/ bez .git        → Broken repo — smaže a git clone -b master
+  │   └─ repo/ neexistuje      → git clone -b master
+  │
   └─ PROFILE (scripts/profile.ps1):
-      ├─ $env:USERDOMAIN ≠ "WORKGROUP"     → 🏢 work
+      ├─ domain-joined ≠ WORKGROUP          → 🏢 work
       ├─ manufacturer = VMware|VirtualBox   → 🧪 lab
       ├─ proxy present, no domain           → 🏢 work (VPN?)
       └─ otherwise                          → 🏠 home
       └─ user override: -Set home|work|lab
+      └─ IDENTITY: saved (identity.json) > git-config > profile placeholder
 ```
 
 ---
@@ -78,14 +95,20 @@ USER runs: irm <gist> | iex
 
 ### When user says: "I have a new PC" / "Mám nový počítač"
 ```
-Run this in PowerShell:
-  irm https://gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/raw/bootstrap.ps1 | iex
-Then:
-  cd ~/.dev-env/repo
-  ./scripts/setup-home.ps1 -WhatIf    (review)
-  ./scripts/setup-home.ps1 -Force     (apply)
-  ./scripts/repair.ps1 -Force
-  ./scripts/test.ps1
+# 1. Dry-run first — vždy!
+$env:DEV_ENV_WHATIF='1'
+irm https://gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/raw/bootstrap.ps1 | iex
+
+# 2. Ostrý run
+Remove-Item Env:\DEV_ENV_WHATIF -ErrorAction SilentlyContinue
+irm https://gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/raw/bootstrap.ps1 | iex
+
+# 3. Setup
+cd ~/.dev-env/repo
+./scripts/setup-home.ps1 -WhatIf    (review)
+./scripts/setup-home.ps1 -Force     (apply)
+./scripts/repair.ps1 -Force
+./scripts/test.ps1
 ```
 
 ### When user says: "check my environment" / "zkontroluj prostředí"
@@ -259,13 +282,15 @@ What should I fix?
 
 ## RULES FOR AI AGENTS
 
-1. **Never suggest committing** `~/.ssh/`, `~/.dev-env/config/`, `machines.json` — these are local secrets
-2. **Always suggest -WhatIf first** — all setup/repair scripts support dry-run
+1. **Never suggest committing** `~/.ssh/`, `~/.dev-env/config/`, `machines.json`, `identity.json` — these are local secrets
+2. **Always suggest -WhatIf / dry-run first** — `$env:DEV_ENV_WHATIF='1'` before `irm | iex`
 3. **Detect before suggesting** — ask user to run bootstrap first if no report available
 4. **Profile matters** — home vs work have different package managers and restrictions
 5. **Git is optional for detect** — bootstrap works without it; suggest install for full features
 6. **Exit code** from test.ps1: 0 = all pass, 1 = some fail — use this for CI
 7. **machines.json grows forever** — append-only; suggest truncation after 100+ entries
+8. **Identita není placeholder** — profile.ps1 auto-detekuje z git configu; `setup-home.ps1 -Force` uloží do `identity.json`
+9. **3-sekční profil** — SYSTEM (OS/domain/profile), USER (account/type), IDENTITIES (git/github/ssh)
 
 ---
 
@@ -273,10 +298,11 @@ What should I fix?
 
 | Status | Item |
 |---|---|
-| 🟠 | `scripts/setup-work.ps1` — corporate PC setup (proxy, VPN, restricted) |
-| 🟠 | `scripts/setup-lab.ps1` — lab VM setup (WSL, scoop, experimental) |
-| 🟠 | Deep merge in `profile.ps1` — nested keys from base not preserved |
-| 🟠 | Git push blocked — email privacy. User must fix at github.com/settings/emails |
+| 🟠 | **Setup podle `tools.required/recommended/optional`** — neinstalovat všechno, respektovat profil |
+| 🟠 | Linux/WSL `bootstrap.sh` — parity s `.ps1` verzí (WhatIf, identity detection, porovnávač) |
+| 🟠 | `setup-home.ps1` — interaktivní režim (výběr packages, identity prompt) |
+| 🟠 | SSH keygen prompt v setupu (když chybí klíče) |
+| 🟠 | `menu/menu.ps1` — aktualizace na nové scripty |
 
 ---
 

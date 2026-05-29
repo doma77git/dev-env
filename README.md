@@ -21,8 +21,11 @@
 ## ⚡ Rychlý start
 
 ```powershell
-# Windows (PowerShell 7+)
+# Windows (PowerShell 7+) — ostrý run
 irm https://gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/raw/bootstrap.ps1 | iex
+
+# Windows — dry-run (detekce + profil + setup náhled, nic se neinstaluje)
+$env:DEV_ENV_WHATIF='1'; irm https://gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/raw/bootstrap.ps1 | iex
 ```
 
 ```bash
@@ -43,15 +46,29 @@ curl -fsSL https://gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/ra
 ╚══════════════════════════════════════════╝
 
 >>> CLONE / KLONUJI REPO
-  git clone ... → C:\Users\...\.dev-env\repo
+  git clone -b master ... → C:\Users\...\.dev-env\repo
   Repo: C:\Users\...\.dev-env\repo
 
 >>> PROFILE: home (auto-detected)
-  Identity : jan@novak.cz
+  Reason   : no domain, no proxy, no VM
+
+  ── SYSTEM ──────────────────────────────────
+  OS       : Microsoft Windows 11 Pro (build 26200)
+  Hostname : H11
+  Domain   : WORKGROUP (workgroup)
+  Profile  : 🏠 HOME — personal PC
+  ── USER ────────────────────────────────────
+  Account  : H11\spravce
+  Type     : Local account
+  ── IDENTITIES ──────────────────────────────
+  Git      : doma77 <doma77@outlook.cz> (git-config)
+  GitHub   : doma77git (logged in)
+  SSH keys : 1 (ed25519)
+  ── TOOLS ───────────────────────────────────
   Proxy    : none
   Package  : winget
 
-Use: scripts/setup-home.ps1 -WhatIf
+  Use / Pouzij:  scripts/setup-home.ps1 -WhatIf
 ```
 
 ---
@@ -120,29 +137,34 @@ irm | iex  →  detect  →  report  →  clone  →  profile  →  setup  →  
 ## 🧪 První kroky po instalaci
 
 ```powershell
-# 1. Spusť bootstrap (pokud už neběží)
+# 1. Dry-run — detekce + profil + setup náhled (nic se neinstaluje)
+$env:DEV_ENV_WHATIF='1'
 irm https://gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/raw/bootstrap.ps1 | iex
 
-# 2. Přejdi do naklonovaného repa
+# 2. Ostrý run — detekce + pull + profil (uloží se)
+Remove-Item Env:\DEV_ENV_WHATIF -ErrorAction SilentlyContinue
+irm https://gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/raw/bootstrap.ps1 | iex
+
+# 3. Přejdi do naklonovaného repa
 cd ~/.dev-env/repo
 
-# 3. Zkontroluj profil
+# 4. Zkontroluj profil
 ./scripts/profile.ps1
 
-# 4. Suchý běh instalace — uvidíš, co se nainstaluje
+# 5. Suchý běh instalace — uvidíš, co se nainstaluje
 ./scripts/setup-home.ps1 -WhatIf
 
-# 5. Instaluj (až budeš připraven)
+# 6. Instaluj (až budeš připraven)
 ./scripts/setup-home.ps1 -Force
 
-# 6. Oprav problémy
+# 7. Oprav problémy
 ./scripts/repair.ps1 -WhatIf
 ./scripts/repair.ps1 -Force
 
-# 7. Otestuj
+# 8. Otestuj
 ./scripts/test.ps1
 
-# 8. Otevři menu
+# 9. Otevři menu
 ./menu/menu.ps1
 ```
 
@@ -175,7 +197,13 @@ cd ~/.dev-env/repo
 | `docs/workflows.md` | 👤 Člověk | Krok za krokem |
 | `index.html` | 👤 Offline | Lokální landing (otevři v prohlížeči) |
 | `profiles/*.json` | ⚙️ Stroj | Definice home / work / lab |
-| `scripts/*.ps1` | 🔧 Spustit | Setup, repair, test, link, profile |
+| `scripts/setup-home.ps1` | 🔧 Spustit | Home PC — winget, dirs, git, autocrlf |
+| `scripts/setup-work.ps1` | 🔧 Spustit | Corporate PC — proxy, VPN, manual |
+| `scripts/setup-lab.ps1`  | 🔧 Spustit | Lab VM — WSL, scoop, experimental |
+| `scripts/repair.ps1`     | 🔧 Spustit | Opravy PATH, HOME, OneDrive, SSH |
+| `scripts/test.ps1`       | 🔧 Spustit | 14 kontrol, exit 0 = pass |
+| `scripts/profile.ps1`    | 🔧 Spustit | Detekce profilu home/work/lab |
+| `scripts/link-configs.ps1` | 🔧 Spustit | Symlink konfigů z repa |
 | `configs/*` | 🔧 Spustit | Sdílené konfigy (git, pwsh) |
 | `menu/menu.ps1` | 🔧 Spustit | Interaktivní menu |
 
@@ -209,19 +237,24 @@ cd ~/.dev-env/repo
 
 | Stav | Co |
 |---|---|
-| ✅ | Bootstrap — detect, fingerprint, report, clone |
-| ✅ | Profily — base, home, work, lab + auto-detekce |
-| ✅ | Setup-home — winget, složky, git, symlinky |
-| ✅ | Repair — PATH, HOME, OneDrive, SSH |
-| ✅ | Test — 14 kontrol |
+| ✅ | Bootstrap — detect, fingerprint, report, clone, WhatIf chain |
+| ✅ | Profily — base, home, work, lab + auto-detekce s reasoning |
+| ✅ | Profil výstup — 3 sekce: SYSTEM / USER / IDENTITIES |
+| ✅ | Identita — auto-detekce z git configu (ne placeholder) |
+| ✅ | GitHub + SSH detekce v profilu |
+| ✅ | `scripts/setup-home.ps1` — winget, složky, git, symlinky |
+| ✅ | `scripts/setup-work.ps1` — firemní instalace (proxy, VPN, manual) |
+| ✅ | `scripts/setup-lab.ps1` — testovací VM (WSL, scoop) |
+| ✅ | `scripts/repair.ps1` — PATH, HOME, OneDrive, SSH |
+| ✅ | `scripts/test.ps1` — 14 kontrol |
 | ✅ | Menu — interaktivní rozcestník |
 | ✅ | AI context — lifecycle, prompty, OS logika |
-| ✅ | Landing — index.html (offline) + docs/index.md (Pages) |
-| ✅ | Manifest — autoritativní metadata |
-| 🟠 | `scripts/setup-work.ps1` — firemní instalace (proxy, VPN) |
-| 🟠 | `scripts/setup-lab.ps1` — testovací VM (WSL, scoop) |
-| 🟠 | Deep merge v `profile.ps1` — zatím shallow merge |
-| 🟠 | Git config autocrlf → input (aplikovat lokálně) |
+| ✅ | Deep merge v `profile.ps1` — rekurzivní merge |
+| ✅ | Git branch `master` — fixnuto clone/pull/tracking |
+| ✅ | Porovnávač tools — robustní, žádné falešné "Gone" |
+| 🟠 | **Setup podle `tools.required/recommended/optional`** — neinstalovat všechno |
+| 🟠 | Linux/WSL `bootstrap.sh` — parity s `.ps1` verzí |
+| 🟠 | `setup-home.ps1` config — identity, packages výběr, interaktivní režim |
 
 ---
 
