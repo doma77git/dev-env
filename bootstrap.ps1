@@ -128,7 +128,7 @@ if ($previous) {
             # Disappeared
             if ($oldVal -and (-not $newVal)) { $lostToolNames += $t; continue }
             # Both present — compare values (stringify: PSObject vs hashtable types may differ)
-            if ($oldVal -and $newVal -and "$oldVal" -ne "$newVal") {
+            if ($oldVal -and $newVal -and "$oldVal".Trim() -ne "$newVal".Trim()) {
                 $newToolNames += "$t (changed)"
             }
         }
@@ -210,7 +210,7 @@ if ($tools.git -ne $null) {
     Write-Host "  Repo: $RepoDir" -ForegroundColor Green
 
     # ═══ 3a. PROFILE — detekce profilu (home/work/lab) ═══════
-    $profileScript = Join-Path $RepoDir "scripts" "profile.ps1"
+    $profileScript = Join-Path $RepoDir "scripts\profile.ps1"
     if (Test-Path $profileScript) {
         Write-Host ""
         . $profileScript -WhatIf:$WhatIf
@@ -220,7 +220,7 @@ if ($tools.git -ne $null) {
     if ($WhatIf -and $ProfileName) {
         Write-Host ""
         Write-Host ">>> DRY-RUN SETUP / SUCHÝ BĚH INSTALACE" -ForegroundColor Magenta
-        $setupScript = Join-Path $RepoDir "scripts" "setup-$ProfileName.ps1"
+        $setupScript = Join-Path $RepoDir "scripts\setup-$ProfileName.ps1"
         if (Test-Path $setupScript) {
             & $setupScript -WhatIf
         } else {
