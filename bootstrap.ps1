@@ -18,9 +18,19 @@ $RepoUrl  = "https://github.com/doma77git/dev-env"                # REPO — kam
 $RepoDir  = Join-Path $env:USERPROFILE ".dev-env/repo"         # LOCAL — kam se klonuje
 $ErrorActionPreference = "Continue"                             # NEPADAT — pokračovat i při chybě
 
-# ═══ PHASE 1/7 — DETECT — inventura stroje (self‑contained, no git) ═══
+# ═══ PHASE 00/8 — BOOTSTRAP — gist entry point ═══════════════
+#         Bootstrap header — odkud se spouští
+$GistUrl = "https://gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5"
+Write-Host ">>> PHASE 00/8 — BOOTSTRAP" -ForegroundColor Cyan
+Write-Host "  running gist from → $GistUrl" -ForegroundColor DarkGray
+Write-Host ""
+Write-Host ">>> 00 — bootstrap OK" -ForegroundColor Green
+Write-Host "  no recommendation, all OK proceeding with phase 01" -ForegroundColor DarkGray
+
+# ═══ PHASE 01/8 — DETECT — inventura stroje (self‑contained, no git) ═══
 #         Inventory — nepotřebuje git, vše je uvnitř
-Write-Host ">>> PHASE 1/7 — ENVIRONMENT DETECT / DETEKCE" -ForegroundColor Cyan
+Write-Host ""
+Write-Host ">>> PHASE 01/8 — ENVIRONMENT DETECT / DETEKCE" -ForegroundColor Cyan
 
 # 1a. Output dir — kam ukládáme reporty
 #     Výstupní složka
@@ -149,10 +159,10 @@ if ($previous) {
 #     Strukturovaný výstup pro AI i člověka
 $report = [ordered]@{
     pipeline = [ordered]@{
-        phases    = [ordered]@{ "1"="environment-detect"; "2"="inventory-report"; "3"="repository-clone"; "4"="profile-identity"; "5"="package-setup"; "6"="environment-repair"; "7"="validation-test" }
-        completed = @("1","2","3","4")
+        phases    = [ordered]@{ "0"="bootstrap"; "1"="environment-detect"; "2"="inventory-report"; "3"="repository-clone"; "4"="profile-identity"; "5"="package-setup"; "6"="environment-repair"; "7"="validation-test" }
+        completed = @("0","1","2","3","4")
         next      = "5"
-        total     = 7
+        total     = 8
     }
     meta = [ordered]@{
         bootstrap = "1.0.0"
@@ -180,11 +190,15 @@ $json | Set-Content -Path $reportPath -Encoding UTF8
 $machines += $report
 $machines | ConvertTo-Json -Depth 6 | Set-Content -Path $machinesFile -Encoding UTF8
 
-# ═══ PHASE 2/7 — REPORT — uložit JSON + zobrazit status ═════
+Write-Host ""
+Write-Host ">>> 01 — environment-detect OK" -ForegroundColor Green
+Write-Host "  fingerprint: $fingerprint, OS: $($osInfo.caption) build $($osInfo.build), tools: $(($tools.GetEnumerator() | Where-Object { $_.Value -ne $null } | Measure-Object).Count)/$($detectTools.Count) detected" -ForegroundColor DarkGray
+
+# ═══ PHASE 02/8 — REPORT — uložit JSON + zobrazit status ═════
 #         Výstup pro uživatele
 $icon = @{ "new"="🔴"; "same"="🟢"; "os-changed"="🟠"; "tools-changed"="🟡" }
 Write-Host ""
-Write-Host ">>> PHASE 2/7 — INVENTORY REPORT / VÝSLEDEK" -ForegroundColor Cyan
+Write-Host ">>> PHASE 02/8 — INVENTORY REPORT / VÝSLEDEK" -ForegroundColor Cyan
 Write-Host "╔══════════════════════════════════════════╗" -ForegroundColor Cyan
 Write-Host "║  $($icon[$status])  $($status.ToUpper())" -ForegroundColor White
 foreach ($c in $changes) { Write-Host "║    $c" -ForegroundColor Yellow }
@@ -193,11 +207,15 @@ Write-Host "║  REPO : $RepoUrl" -ForegroundColor Cyan
 Write-Host "║  RPT  : $reportPath" -ForegroundColor Yellow
 Write-Host "╚══════════════════════════════════════════╝" -ForegroundColor Cyan
 
-# ═══ PHASE 3/7 — CLONE — stáhnout repo (jen když git existuje) ═══
+Write-Host ""
+Write-Host ">>> 02 — inventory-report OK" -ForegroundColor Green
+Write-Host "  status: $status, proceeding with phase 03" -ForegroundColor DarkGray
+
+# ═══ PHASE 03/8 — CLONE — stáhnout repo (jen když git existuje) ═══
 #         git clone → ~/.dev-env/repo/
 if ($tools.git -ne $null) {
     Write-Host ""
-    Write-Host ">>> PHASE 3/7 — REPOSITORY CLONE / KLONOVÁNÍ" -ForegroundColor Cyan
+    Write-Host ">>> PHASE 03/8 — REPOSITORY CLONE / KLONOVÁNÍ" -ForegroundColor Cyan
     if ((Test-Path $RepoDir) -and (Test-Path "$RepoDir\.git")) {
         Write-Host "  Already exists / Repo existuje — pulling ..." -ForegroundColor Yellow
         try {
@@ -221,30 +239,36 @@ if ($tools.git -ne $null) {
         try { git clone -b master $RepoUrl $RepoDir } catch { Write-Host "  Clone failed / selhal: $_" -ForegroundColor Red }
     }
     Write-Host "  Repo: $RepoDir" -ForegroundColor Green
+    Write-Host ""
+    Write-Host ">>> 03 — repository-clone OK" -ForegroundColor Green
+    Write-Host "  repo at $RepoDir, proceeding with phase 04" -ForegroundColor DarkGray
 
-    # ═══ PHASE 4/7 — PROFILE — detekce (home/work/lab) ═══════
-    $profileScript = Join-Path $RepoDir "scripts\profile.ps1"
+    # ═══ PHASE 04/8 — PROFILE — detekce (home/work/lab) ═══════
+    $profileScript = Join-Path $RepoDir "scripts\04-profile.ps1"
     if (Test-Path $profileScript) {
         Write-Host ""
         . $profileScript -WhatIf:$WhatIf
     }
 
-    # ═══ PHASE 5/7 — SETUP (dry-run only) — když -WhatIf, automaticky ═══
+    # ═══ PHASE 05/8 — SETUP (dry-run only) — když -WhatIf, automaticky ═══
     if ($WhatIf -and $ProfileName) {
         Write-Host ""
-        Write-Host ">>> PHASE 5/7 — PACKAGE SETUP (dry-run) / SUCHÁ INSTALACE" -ForegroundColor Magenta
-        $setupScript = Join-Path $RepoDir "scripts\setup-$ProfileName.ps1"
+        Write-Host ">>> PHASE 05/8 — PACKAGE SETUP (dry-run) / SUCHÁ INSTALACE" -ForegroundColor Magenta
+        $setupScript = Join-Path $RepoDir "scripts\05-setup-$ProfileName.ps1"
         if (Test-Path $setupScript) {
             & $setupScript -WhatIf
         } else {
-            Write-Host "  ⚠ Setup script not found: setup-$ProfileName.ps1" -ForegroundColor Yellow
-            Write-Host "  Try manually: ./scripts/setup-home.ps1 -WhatIf" -ForegroundColor DarkCyan
+            Write-Host "  ⚠ Setup script not found: 05-setup-$ProfileName.ps1" -ForegroundColor Yellow
+            Write-Host "  Try manually: ./scripts/05-setup-home.ps1 -WhatIf" -ForegroundColor DarkCyan
         }
     }
 } else {
     Write-Host ""
-    Write-Host ">>> PHASE 3/7 — GIT NOT FOUND / GIT NENALEZEN — skipping" -ForegroundColor DarkYellow
+    Write-Host ">>> PHASE 03/8 — GIT NOT FOUND / GIT NENALEZEN — skipping" -ForegroundColor DarkYellow
     Write-Host "  Install git and run bootstrap again. / Nainstaluj git a spus bootstrap znovu." -ForegroundColor DarkYellow
+    Write-Host ""
+    Write-Host ">>> 03 — repository-clone FAIL" -ForegroundColor Red
+    Write-Host "  git not available, cannot proceed with phases 04-07" -ForegroundColor DarkYellow
 }
 
 # ═══ RAW JSON — pro kopírování AI agentovi ═══════════════════

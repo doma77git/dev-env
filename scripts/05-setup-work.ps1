@@ -1,15 +1,15 @@
 #!/usr/bin/env pwsh
-# === scripts/setup-work.ps1 ===================================
+# === scripts/05-setup-work.ps1 ================================
 # ROLE:   Corporate PC (PPG) setup — no winget, proxy, VPN
 #         Instalace firemního PC
-# RUN:    ./setup-work.ps1 -WhatIf       (dry run / suchý běh)
-#         ./setup-work.ps1 -Force          (apply / aplikovat)
+# RUN:    ./05-setup-work.ps1 -WhatIf     (dry run / suchý běh)
+#         ./05-setup-work.ps1 -Force        (apply / aplikovat)
 # ==============================================================
 param([switch]$Force, [switch]$WhatIf)
 
 $profile = Get-Content (Join-Path $PSScriptRoot ".." "profiles" "work.json") -Raw | ConvertFrom-Json
 
-Write-Host ">>> PHASE 5/7 — PACKAGE SETUP (work) / INSTALACE FIREMNÍ" -ForegroundColor Green
+Write-Host ">>> PHASE 05/8 — PACKAGE SETUP (work) / INSTALACE FIREMNÍ" -ForegroundColor Green
 Write-Host ""
 
 # 1. Proxy environment variables
@@ -131,6 +131,11 @@ Write-Host "5.6 Config symlinks / symlinky" -ForegroundColor Cyan
 & "$PSScriptRoot\link-configs.ps1" -WhatIf:$WhatIf -Force:$Force
 
 Write-Host ""
+Write-Host ""
+Write-Host ">>> 05 — package-setup (work) OK" -ForegroundColor Green
+if ($Force)   { Write-Host "  packages installed, proceeding with phase 06" -ForegroundColor DarkGray }
+if ($WhatIf)  { Write-Host "  dry-run complete, review above then run with -Force" -ForegroundColor DarkGray }
+if (-not $Force -and -not $WhatIf) { Write-Host "  review above then run with -WhatIf or -Force" -ForegroundColor DarkGray }
 Write-Host "=== DONE / HOTOVO ===" -ForegroundColor Green
 if (-not $Force -and -not $WhatIf) {
     Write-Host "  Run with -WhatIf or -Force / Spust s -WhatIf nebo -Force" -ForegroundColor Cyan

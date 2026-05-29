@@ -1,15 +1,15 @@
 #!/usr/bin/env pwsh
-# === scripts/setup-lab.ps1 ====================================
+# === scripts/05-setup-lab.ps1 =================================
 # ROLE:   Lab VM setup — scoop, WSL, experimental tools
 #         Instalace testovací VM
-# RUN:    ./setup-lab.ps1 -WhatIf       (dry run / suchý běh)
-#         ./setup-lab.ps1 -Force          (apply / aplikovat)
+# RUN:    ./05-setup-lab.ps1 -WhatIf     (dry run / suchý běh)
+#         ./05-setup-lab.ps1 -Force        (apply / aplikovat)
 # ==============================================================
 param([switch]$Force, [switch]$WhatIf)
 
 $profile = Get-Content (Join-Path $PSScriptRoot ".." "profiles" "lab.json") -Raw | ConvertFrom-Json
 
-Write-Host ">>> PHASE 5/7 — PACKAGE SETUP (lab) / INSTALACE VM" -ForegroundColor Green
+Write-Host ">>> PHASE 05/8 — PACKAGE SETUP (lab) / INSTALACE VM" -ForegroundColor Green
 Write-Host ""
 
 # 1. WSL enable
@@ -145,6 +145,11 @@ Write-Host "5.6 Config symlinks / symlinky" -ForegroundColor Cyan
 & "$PSScriptRoot\link-configs.ps1" -WhatIf:$WhatIf -Force:$Force
 
 Write-Host ""
+Write-Host ""
+Write-Host ">>> 05 — package-setup (lab) OK" -ForegroundColor Green
+if ($Force)   { Write-Host "  packages installed, proceeding with phase 06" -ForegroundColor DarkGray }
+if ($WhatIf)  { Write-Host "  dry-run complete, review above then run with -Force" -ForegroundColor DarkGray }
+if (-not $Force -and -not $WhatIf) { Write-Host "  review above then run with -WhatIf or -Force" -ForegroundColor DarkGray }
 Write-Host "=== DONE / HOTOVO ===" -ForegroundColor Green
 if (-not $Force -and -not $WhatIf) {
     Write-Host "  Run with -WhatIf or -Force / Spust s -WhatIf nebo -Force" -ForegroundColor Cyan

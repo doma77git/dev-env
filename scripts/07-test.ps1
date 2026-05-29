@@ -1,13 +1,13 @@
 #!/usr/bin/env pwsh
-# === scripts/test.ps1 =========================================
+# === scripts/07-test.ps1 ======================================
 # ROLE:   Validate environment — return 0 (pass) or 1 (fail)
 #         Ověření prostředí
-# RUN:    ./test.ps1
+# RUN:    ./07-test.ps1
 # ==============================================================
 $ErrorActionPreference = "Continue"
 $pass = 0; $fail = 0
 
-Write-Host ">>> PHASE 7/7 — VALIDATION TEST / OVĚŘENÍ" -ForegroundColor Green
+Write-Host ">>> PHASE 07/8 — VALIDATION TEST / OVĚŘENÍ" -ForegroundColor Green
 Write-Host ""
 
 function check($label, $condition, $fix) {
@@ -76,5 +76,8 @@ check "OneDrive not redirecting Desktop/Documents" $odOk "Turn off OneDrive back
 
 # Summary
 Write-Host ""
+Write-Host ""
+Write-Host ">>> 07 — validation-test $($(if ($fail -eq 0) { "OK" } else { "FAIL" }))" -ForegroundColor $(if ($fail -eq 0) { "Green" } else { "Red" })
+Write-Host "  $pass pass / $fail fail" -ForegroundColor $(if ($fail -eq 0) { "DarkGray" } else { "Red" })
 Write-Host "=== RESULT: $pass pass / $fail fail ===" -ForegroundColor $(if ($fail -eq 0) { "Green" } else { "Red" })
 exit $(if ($fail -eq 0) { 0 } else { 1 })
