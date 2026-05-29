@@ -9,12 +9,12 @@ param([switch]$Force, [switch]$WhatIf)
 
 $profile = Get-Content (Join-Path $PSScriptRoot ".." "profiles" "home.json") -Raw | ConvertFrom-Json
 
-Write-Host "=== SETUP HOME ===" -ForegroundColor Green
+Write-Host ">>> PHASE 5/7 — SETUP (home) / INSTALACE" -ForegroundColor Green
 Write-Host "  Home PC — winget install, folders, git config, autocrlf" -ForegroundColor DarkGray
 Write-Host ""
 
 # 1. HOME env variable
-Write-Host "[1/6] HOME environment variable" -ForegroundColor Cyan
+Write-Host "5.1 HOME environment variable" -ForegroundColor Cyan
 if ($env:HOME -and $env:HOME -ne $env:USERPROFILE) {
     Write-Host "  HOME = $env:HOME" -ForegroundColor Green
 } elseif ($env:HOME -eq $env:USERPROFILE) {
@@ -30,7 +30,7 @@ if ($env:HOME -and $env:HOME -ne $env:USERPROFILE) {
 }
 
 # 2. Directories / složky
-Write-Host "[2/6] Directories / složky" -ForegroundColor Cyan
+Write-Host "5.2 Directories / složky" -ForegroundColor Cyan
 $dirs = @(
     "~\dev\projects\osobni",
     "~\dev\projects\ppg",
@@ -56,7 +56,7 @@ foreach ($d in $dirs) {
 }
 
 # 3. Winget / balíčky
-Write-Host "[3/6] Packages / balíčky (winget)" -ForegroundColor Cyan
+Write-Host "5.3 Packages / balíčky (winget)" -ForegroundColor Cyan
 $packages = @(
     "Git.Git",
     "Microsoft.PowerShell",
@@ -82,11 +82,11 @@ foreach ($pkg in $packages) {
 }
 
 # 4. Symlink configs / konfigy
-Write-Host "[4/6] Config symlinks / symlinky" -ForegroundColor Cyan
+Write-Host "5.4 Config symlinks / symlinky" -ForegroundColor Cyan
 & "$PSScriptRoot\link-configs.ps1" -WhatIf:$WhatIf -Force:$Force
 
 # 5. Git config / globální nastavení
-Write-Host "[5/6] Git identity / identita" -ForegroundColor Cyan
+Write-Host "5.5 Git identity / identita" -ForegroundColor Cyan
 # Resolve identity: saved > git-config > profile default (same priority as profile.ps1)
 $identityFile = Join-Path $env:USERPROFILE ".dev-env" "config" "identity.json"
 $savedId = if (Test-Path $identityFile) { try { Get-Content $identityFile -Raw | ConvertFrom-Json } catch { $null } } else { $null }
@@ -125,7 +125,7 @@ if ($Force) {
 }
 
 # 6. Git autocrlf / konce řádků
-Write-Host "[6/6] Git core.autocrlf / konce řádků" -ForegroundColor Cyan
+Write-Host "5.6 Git core.autocrlf / konce řádků" -ForegroundColor Cyan
 $currentAutocrlf = git config --global core.autocrlf 2>$null
 if ($currentAutocrlf -eq "input") {
     Write-Host "  OK  core.autocrlf = input" -ForegroundColor Green
