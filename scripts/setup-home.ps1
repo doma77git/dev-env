@@ -10,10 +10,11 @@ param([switch]$Force, [switch]$WhatIf)
 $profile = Get-Content (Join-Path $PSScriptRoot ".." "profiles" "home.json") -Raw | ConvertFrom-Json
 
 Write-Host "=== SETUP HOME ===" -ForegroundColor Green
+Write-Host "  Home PC — winget install, folders, git config, autocrlf" -ForegroundColor DarkGray
 Write-Host ""
 
 # 1. HOME env variable
-Write-Host "[1/5] HOME environment variable" -ForegroundColor Cyan
+Write-Host "[1/6] HOME environment variable" -ForegroundColor Cyan
 if ($env:HOME -and $env:HOME -ne $env:USERPROFILE) {
     Write-Host "  HOME = $env:HOME" -ForegroundColor Green
 } elseif ($env:HOME -eq $env:USERPROFILE) {
@@ -29,7 +30,7 @@ if ($env:HOME -and $env:HOME -ne $env:USERPROFILE) {
 }
 
 # 2. Directories / složky
-Write-Host "[2/5] Directories / složky" -ForegroundColor Cyan
+Write-Host "[2/6] Directories / složky" -ForegroundColor Cyan
 $dirs = @(
     "~\dev\projects\osobni",
     "~\dev\projects\ppg",
@@ -55,7 +56,7 @@ foreach ($d in $dirs) {
 }
 
 # 3. Winget / balíčky
-Write-Host "[3/5] Packages / balíčky (winget)" -ForegroundColor Cyan
+Write-Host "[3/6] Packages / balíčky (winget)" -ForegroundColor Cyan
 $packages = @(
     "Git.Git",
     "Microsoft.PowerShell",
@@ -81,23 +82,42 @@ foreach ($pkg in $packages) {
 }
 
 # 4. Symlink configs / konfigy
-Write-Host "[4/5] Config symlinks / symlinky" -ForegroundColor Cyan
+Write-Host "[4/6] Config symlinks / symlinky" -ForegroundColor Cyan
 & "$PSScriptRoot\link-configs.ps1" -WhatIf:$WhatIf -Force:$Force
 
 # 5. Git config / globální nastavení
-Write-Host "[5/5] Git identity / identita" -ForegroundColor Cyan
+Write-Host "[5/6] Git identity / identita" -ForegroundColor Cyan
 $gitName  = $profile.identity.git.name
 $gitEmail = $profile.identity.git.email
 if ($Force) {
     git config --global user.name "$gitName"
     git config --global user.email "$gitEmail"
     Write-Host "  Set: $gitName <$gitEmail>" -ForegroundColor Green
+    # Save identity so profile.ps1 detects it on next run
+    $identityFile = Join-Path $env:USERPROFILE ".dev-env" "config" "identity.json"
+    $null = New-Item -ItemType Directory -Path (Split-Path $identityFile -Parent) -Force
+    @{ git = @{ name = $gitName; email = $gitEmail } } | ConvertTo-Json | Set-Content $identityFile -Encoding UTF8
+    Write-Host "  Saved → ~/.dev-env/config/identity.json" -ForegroundColor DarkCyan
 } elseif ($WhatIf) {
     Write-Host "  [WHATIF] Would set: $gitName <$gitEmail>" -ForegroundColor DarkCyan
 } else {
     $current = git config --global user.name 2>$null
     $currentEmail = git config --global user.email 2>$null
     Write-Host "  Current: $current <$currentEmail>" -ForegroundColor Yellow
+}
+
+# 6. Git autocrlf / konce řádků
+Write-Host "[6/6] Git core.autocrlf / konce řádků" -ForegroundColor Cyan
+$currentAutocrlf = git config --global core.autocrlf 2>$null
+if ($currentAutocrlf -eq "input") {
+    Write-Host "  OK  core.autocrlf = input" -ForegroundColor Green
+} else {
+    Write-Host "  CHG core.autocrlf = $($currentAutocrlf ?? 'not set') → input" -ForegroundColor Yellow
+    if ($Force) {
+        git config --global core.autocrlf input
+        Write-Host "  Set core.autocrlf = input" -ForegroundColor DarkCyan
+    }
+    if ($WhatIf) { Write-Host "  [WHATIF] Would set core.autocrlf = input" -ForegroundColor DarkCyan }
 }
 
 Write-Host ""

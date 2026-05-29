@@ -4,9 +4,15 @@
 # ROLE:   Detect environment + point to repo + clone (if git)
 #         Detekce prostředí + pointer na repo + clone (pokud git)
 # RUN:    irm <url> | iex                                      (Windows)
+#         $env:DEV_ENV_WHATIF='1'; irm <url> | iex              (dry-run)
+#         ./bootstrap.ps1 -WhatIf                               (dry-run local)
 # PARTNER: bootstrap.sh — curl -fsSL <url> | bash               (Linux/WSL)
 # PATTERN: curl -fsSL <url>/bootstrap.sh | bash (dotfiles standard)
 # ==============================================================
+param([switch]$WhatIf)
+# Support dry-run via env var for piped invocation (irm | iex can't pass params)
+if (-not $WhatIf) { $WhatIf = [bool]([Environment]::GetEnvironmentVariable('DEV_ENV_WHATIF')) }
+if ($WhatIf) { Write-Host ">>> DRY-RUN MODE / SUCHÝ BĚH" -ForegroundColor Magenta }
 
 $RepoUrl  = "https://github.com/doma77git/dev-env"                # REPO — kam ukazuje gist
 $RepoDir  = Join-Path $env:USERPROFILE ".dev-env/repo"         # LOCAL — kam se klonuje
@@ -108,13 +114,33 @@ if ($previous) {
         $status = "os-changed"                                   # reinstal / upgrade
         $changes += "OS build: $($pOs.build) → $($osInfo.build)"
     }
-    $oldT = @(if ($previous.tools) { $previous.tools.PSObject.Properties | Where-Object { $_.Name -in $detectTools } } else { @() })
-    $newT = $tools.PSObject.Properties | Where-Object { $_.Value -and $_.Name -in $detectTools -and -not ($oldT | Where-Object Name -eq $_.Name).Value }
-    $lostT= $oldT | Where-Object { $_.Value -and $_.Name -in $detectTools -and -not ($tools.PSObject.Properties | Where-Object Name -eq $_.Name).Value }
-    if ($newT -or $lostT) { 
-        if ($status -ne "os-changed") { $status = "tools-changed" }
-        if ($newT)  { $changes += "New: $($newT.Name -join ', ')" }
-        if ($lostT) { $changes += "Gone: $($lostT.Name -join ', ')" }
+    # Robust comparison — handles incompatible $previous (buggy version, schema drift)
+    try {
+        $newToolNames = @(); $lostToolNames = @()
+        $prevTools = if ($previous.tools) { $previous.tools } else { $null }
+        foreach ($t in $detectTools) {
+            $oldVal = try { $prevTools.$t } catch { $null }
+            $newVal = $tools[$t]
+            # Both absent → skip
+            if (-not $oldVal -and -not $newVal) { continue }
+            # Newly appeared
+            if ((-not $oldVal) -and $newVal) { $newToolNames += $t; continue }
+            # Disappeared
+            if ($oldVal -and (-not $newVal)) { $lostToolNames += $t; continue }
+            # Both present — compare values (stringify: PSObject vs hashtable types may differ)
+            if ($oldVal -and $newVal -and "$oldVal" -ne "$newVal") {
+                $newToolNames += "$t (changed)"
+            }
+        }
+        if ($newToolNames -or $lostToolNames) {
+            if ($status -ne "os-changed") { $status = "tools-changed" }
+            if ($newToolNames)  { $changes += "New: $($newToolNames -join ', ')" }
+            if ($lostToolNames) { $changes += "Gone: $($lostToolNames -join ', ')" }
+        }
+    } catch {
+        # Incompatible $previous structure → treat as fresh detection
+        Write-Host "  ⚠ Previous report format changed — treating as new detection" -ForegroundColor DarkYellow
+        $status = "new"
     }
     if ($changes.Count -eq 0) { $status = "same" }               # nic se nezměnilo
 }
@@ -167,10 +193,19 @@ if ($tools.git -ne $null) {
     Write-Host ">>> CLONE / KLONUJI REPO" -ForegroundColor Cyan
     if (Test-Path $RepoDir) {
         Write-Host "  Already exists / Repo existuje — pulling ..." -ForegroundColor Yellow
-        try { git -C $RepoDir pull } catch { Write-Host "  Pull failed / selhal: $_" -ForegroundColor Red }
+        try {
+            git -C $RepoDir fetch origin
+            git -C $RepoDir checkout master 2>$null
+            git -C $RepoDir pull origin master
+            # Fix tracking if misconfigured (main vs master)
+            $upstream = git -C $RepoDir rev-parse --abbrev-ref '@{upstream}' 2>$null
+            if ($upstream -notmatch 'origin/master') {
+                git -C $RepoDir branch --set-upstream-to=origin/master master 2>$null
+            }
+        } catch { Write-Host "  Pull failed / selhal: $_" -ForegroundColor Red }
     } else {
-        Write-Host "  git clone $RepoUrl $RepoDir" -ForegroundColor Yellow
-        try { git clone $RepoUrl $RepoDir } catch { Write-Host "  Clone failed / selhal: $_" -ForegroundColor Red }
+        Write-Host "  git clone -b master $RepoUrl $RepoDir" -ForegroundColor Yellow
+        try { git clone -b master $RepoUrl $RepoDir } catch { Write-Host "  Clone failed / selhal: $_" -ForegroundColor Red }
     }
     Write-Host "  Repo: $RepoDir" -ForegroundColor Green
 
@@ -178,7 +213,20 @@ if ($tools.git -ne $null) {
     $profileScript = Join-Path $RepoDir "scripts" "profile.ps1"
     if (Test-Path $profileScript) {
         Write-Host ""
-        . $profileScript
+        . $profileScript -WhatIf:$WhatIf
+    }
+
+    # ═══ 3b. SETUP DRY-RUN — když -WhatIf, automaticky spustit setup suchý běh ═══
+    if ($WhatIf -and $ProfileName) {
+        Write-Host ""
+        Write-Host ">>> DRY-RUN SETUP / SUCHÝ BĚH INSTALACE" -ForegroundColor Magenta
+        $setupScript = Join-Path $RepoDir "scripts" "setup-$ProfileName.ps1"
+        if (Test-Path $setupScript) {
+            & $setupScript -WhatIf
+        } else {
+            Write-Host "  ⚠ Setup script not found: setup-$ProfileName.ps1" -ForegroundColor Yellow
+            Write-Host "  Try manually: ./scripts/setup-home.ps1 -WhatIf" -ForegroundColor DarkCyan
+        }
     }
 } else {
     Write-Host ""
