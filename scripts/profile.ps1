@@ -10,6 +10,13 @@ param([switch]$Force, [string]$Set, [switch]$WhatIf)
 $profilesDir = Join-Path $PSScriptRoot ".." "profiles"
 $configDir   = Join-Path $env:USERPROFILE ".dev-env" "config"
 
+# 0. System detection — always runs (needed for output + profile auto-detect)
+#    Detekce systému — běží vždy
+$osInfo = Get-CimInstance Win32_OperatingSystem -ErrorAction SilentlyContinue
+$csInfo = Get-CimInstance Win32_ComputerSystem -ErrorAction SilentlyContinue
+$detectedDomain = $env:USERDOMAIN
+$detectedProxy  = (Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings" -ErrorAction SilentlyContinue).ProxyServer
+
 # 1. Load profiles / načíst profily
 $profiles = @{}
 Get-ChildItem "$profilesDir/*.json" | ForEach-Object {
@@ -26,27 +33,29 @@ if ($Set -and $profiles[$Set]) {
     Write-Host ">>> PROFILE: $ProfileName (saved)" -ForegroundColor Cyan
 } else {
     # 3. Auto-detect / automatická detekce
-    $domain = $env:USERDOMAIN
-    $proxy  = (Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings" -ErrorAction SilentlyContinue).ProxyServer
-    $cs     = Get-CimInstance Win32_ComputerSystem -ErrorAction SilentlyContinue
-
     # Firemní signály
-    if ($cs.PartOfDomain -and $domain -ne "WORKGROUP") {
+    $detectReason = ""
+    if ($csInfo.PartOfDomain -and $detectedDomain -ne "WORKGROUP") {
         $ProfileName = "work"
+        $detectReason = "domain-joined: $detectedDomain"
     }
     # VM detekce (lab)
-    elseif ($cs.Manufacturer -match "VMware|VirtualBox|QEMU|Xen") {
+    elseif ($csInfo.Manufacturer -match "VMware|VirtualBox|QEMU|Xen") {
         $ProfileName = "lab"
+        $detectReason = "VM detected: $($csInfo.Manufacturer) $($csInfo.Model)"
     }
     # Firemní proxy bez domény (VPN?)
-    elseif ($proxy) {
+    elseif ($detectedProxy) {
         $ProfileName = "work"
+        $detectReason = "corporate proxy: $detectedProxy"
     }
     # Vše ostatní = home
     else {
         $ProfileName = "home"
+        $detectReason = "no domain, no proxy, no VM"
     }
     Write-Host ">>> PROFILE: $ProfileName (auto-detected)" -ForegroundColor Cyan
+    Write-Host "  Reason   : $detectReason" -ForegroundColor DarkGray
 }
 
 # 4. Resolve inheritance / sloučit base + profil
@@ -116,20 +125,68 @@ if (-not $WhatIf) {
     Write-Host "  [WHATIF] Would save profile: $ProfileName → ~/.dev-env/config/profile.json" -ForegroundColor DarkCyan
 }
 
-# 6. Output summary / shrnutí
-$identityColor = if ($identitySource -eq "placeholder") { "Red" } elseif ($identitySource -eq "git-config") { "Green" } else { "Yellow" }
-Write-Host "  Identity : $($ProfileData.identity.git.email) ($identitySource)" -ForegroundColor $identityColor
-if ($identitySource -eq "placeholder") {
-    Write-Host "  ⚠ IDENTITY IS A PLACEHOLDER! Run: setup-$ProfileName.ps1 -Force" -ForegroundColor Red
-}
-Write-Host "  Proxy    : $($ProfileData.proxy ?? 'none')" -ForegroundColor Yellow
-Write-Host "  Package  : $($ProfileData.packageManager ?? 'manual')" -ForegroundColor Yellow
+# 6. Output — 3 sections: SYSTEM / USER / IDENTITIES
+#     Výstup — systém, uživatel, identity
+$profileIcon = @{ "home"="🏠"; "work"="🏢"; "lab"="🧪" }
+$profileLabel = @{ "home"="HOME — personal PC"; "work"="CORP — corporate PC"; "lab"="LAB — test VM" }
+$profileColor = @{ "home"="Green"; "work"="Yellow"; "lab"="Magenta" }
+
+Write-Host ""
+Write-Host "  ── SYSTEM ──────────────────────────────────" -ForegroundColor DarkCyan
+Write-Host "  OS       : $($osInfo.Caption) (build $($osInfo.BuildNumber))" -ForegroundColor Gray
+Write-Host "  Hostname : $env:COMPUTERNAME" -ForegroundColor Gray
+$domainLabel = if ($csInfo.PartOfDomain) { "$($csInfo.Domain) (domain-joined)" } else { "$($csInfo.Domain) (workgroup)" }
+Write-Host "  Domain   : $domainLabel" -ForegroundColor Gray
+Write-Host "  Profile  : $($profileIcon[$ProfileName]) $($profileLabel[$ProfileName])" -ForegroundColor $profileColor[$ProfileName]
+if ($detectReason) { Write-Host "  Reason   : $detectReason" -ForegroundColor DarkGray }
 if ($ProfileData.restrictions) {
     Write-Host "  ⚠ RESTRICTED MODE" -ForegroundColor Red
     $ProfileData.restrictions.PSObject.Properties | ForEach-Object {
         Write-Host "    $($_.Name): $($_.Value)" -ForegroundColor Red
     }
 }
+
+Write-Host "  ── USER ────────────────────────────────────" -ForegroundColor DarkCyan
+$whoami = "$env:USERDOMAIN\$env:USERNAME"
+Write-Host "  Account  : $whoami" -ForegroundColor Gray
+if ($csInfo.PartOfDomain) {
+    Write-Host "  Type     : Domain account ($($csInfo.Domain))" -ForegroundColor Yellow
+} else {
+    Write-Host "  Type     : Local account" -ForegroundColor Gray
+}
+
+Write-Host "  ── IDENTITIES ──────────────────────────────" -ForegroundColor DarkCyan
+$identityColor = if ($identitySource -eq "placeholder") { "Red" } elseif ($identitySource -eq "git-config") { "Green" } else { "Yellow" }
+$gitLabel = if ($identitySource -eq "placeholder") { "$($ProfileData.identity.git.email) ⚠ PLACEHOLDER" } else { "$($ProfileData.identity.git.name) <$($ProfileData.identity.git.email)>" }
+Write-Host "  Git      : $gitLabel ($identitySource)" -ForegroundColor $identityColor
+if ($identitySource -eq "placeholder") {
+    Write-Host "           ⚠ Run: setup-$ProfileName.ps1 -Force" -ForegroundColor Red
+}
+# GitHub
+$ghUser = try { gh auth status 2>&1 | Select-String "Logged in to github.com as" } catch { $null }
+if ($ghUser) {
+    $ghAccount = ($ghUser -replace '.*as\s+','').Trim() -replace '\s.*',''
+    Write-Host "  GitHub   : $ghAccount (logged in)" -ForegroundColor Green
+} else {
+    $ghStatus = try { gh auth status 2>&1 | Out-String } catch { $null }
+    if ($ghStatus -match 'not logged in') {
+        Write-Host "  GitHub   : not logged in" -ForegroundColor Yellow
+    } else {
+        Write-Host "  GitHub   : unknown (gh not available)" -ForegroundColor DarkGray
+    }
+}
+# SSH keys
+$sshKeys = @(Get-ChildItem "$env:USERPROFILE\.ssh\id_*" -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '^id_' -and $_.Name -notmatch '\.pub$' })
+if ($sshKeys.Count -gt 0) {
+    $keyTypes = ($sshKeys | ForEach-Object { $_.Extension -replace '^\.','' }) -join ', '
+    Write-Host "  SSH keys : $($sshKeys.Count) ($keyTypes)" -ForegroundColor Green
+} else {
+    Write-Host "  SSH keys : none" -ForegroundColor Yellow
+}
+
+Write-Host "  ── TOOLS ───────────────────────────────────" -ForegroundColor DarkCyan
+Write-Host "  Proxy    : $($ProfileData.proxy ?? 'none')" -ForegroundColor Gray
+Write-Host "  Package  : $($ProfileData.packageManager ?? 'manual')" -ForegroundColor Gray
 
 Write-Host ""
 Write-Host "  Use / Pouzij:  scripts/setup-$ProfileName.ps1 -WhatIf" -ForegroundColor Cyan
