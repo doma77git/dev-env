@@ -1,5 +1,5 @@
 #!/usr/bin/env pwsh
-# === scripts/04-profile.ps1 ===================================
+# === scripts/40-profile.ps1 ===================================
 # ROLE:   Detect active profile (home / work / lab)
 #         Detekce aktivního profilu
 # INPUT:  profiles/*.json  +  env detection
@@ -27,10 +27,10 @@ Get-ChildItem "$profilesDir/*.json" | ForEach-Object {
 # 2. Manual override / ruční přepsání
 if ($Set -and $profiles[$Set]) {
     $ProfileName = $Set
-    Write-Host ">>> PHASE 04/8 — PROFILE & IDENTITY: $ProfileName (manual override)" -ForegroundColor Cyan
+    Write-Host ">>> PHASE 40 — PROFILE & IDENTITY: $ProfileName (manual override)" -ForegroundColor Cyan
 } elseif (Test-Path "$configDir/profile.json") {
     $ProfileName = (Get-Content "$configDir/profile.json" -Raw | ConvertFrom-Json).profile
-    Write-Host ">>> PHASE 04/8 — PROFILE & IDENTITY: $ProfileName (saved)" -ForegroundColor Cyan
+    Write-Host ">>> PHASE 40 — PROFILE & IDENTITY: $ProfileName (saved)" -ForegroundColor Cyan
 } else {
     # 3. Auto-detect / automatická detekce
     # Firemní signály
@@ -54,7 +54,7 @@ if ($Set -and $profiles[$Set]) {
         $ProfileName = "home"
         $detectReason = "no domain, no proxy, no VM"
     }
-    Write-Host ">>> PHASE 04/8 — PROFILE & IDENTITY: $ProfileName (auto-detected)" -ForegroundColor Cyan
+    Write-Host ">>> PHASE 40 — PROFILE & IDENTITY: $ProfileName (auto-detected)" -ForegroundColor Cyan
     Write-Host "  Reason   : $detectReason" -ForegroundColor DarkGray
 }
 
@@ -160,7 +160,7 @@ $identityColor = if ($identitySource -eq "placeholder") { "Red" } elseif ($ident
 $gitLabel = if ($identitySource -eq "placeholder") { "$($ProfileData.identity.git.email) ⚠ PLACEHOLDER" } else { "$($ProfileData.identity.git.name) <$($ProfileData.identity.git.email)>" }
 Write-Host "  Git      : $gitLabel ($identitySource)" -ForegroundColor $identityColor
 if ($identitySource -eq "placeholder") {
-    Write-Host "           ⚠ Run: 05-setup-$ProfileName.ps1 -Force" -ForegroundColor Red
+    Write-Host "           ⚠ Run: 50-setup-$ProfileName.ps1 -Force" -ForegroundColor Red
 }
 # GitHub
 $ghOutput = try { gh auth status 2>&1 | Out-String } catch { $null }
@@ -186,7 +186,7 @@ Write-Host "  Proxy    : $($ProfileData.proxy ?? 'none')" -ForegroundColor Gray
 Write-Host "  Package  : $($ProfileData.packageManager ?? 'manual')" -ForegroundColor Gray
 
 Write-Host ""
-Write-Host ">>> 04 — profile-identity OK" -ForegroundColor Green
-Write-Host "  profile: $ProfileName, identity: $identitySource, proceeding with phase 05" -ForegroundColor DarkGray
+Write-Host ">>> 40 — profile-identity OK" -ForegroundColor Green
+Write-Host "  profile: $ProfileName, identity: $identitySource, proceeding with phase 50" -ForegroundColor DarkGray
 
-Write-Host "  Use / Pouzij:  scripts/05-setup-$ProfileName.ps1 -WhatIf" -ForegroundColor Cyan
+Write-Host "  Use / Pouzij:  scripts/50-setup-$ProfileName.ps1 -WhatIf" -ForegroundColor Cyan

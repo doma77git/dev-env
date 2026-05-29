@@ -1,13 +1,13 @@
 #!/usr/bin/env pwsh
-# === scripts/06-repair.ps1 ====================================
+# === scripts/60-repair.ps1 ====================================
 # ROLE:   Repair common issues — PATH, HOME, OneDrive
 #         Oprava běžných problémů
-# RUN:    ./06-repair.ps1 -WhatIf      (dry run / suchý běh)
-#         ./06-repair.ps1 -Force         (apply / aplikovat)
+# RUN:    ./60-repair.ps1 -WhatIf      (dry run / suchý běh)
+#         ./60-repair.ps1 -Force         (apply / aplikovat)
 # ==============================================================
 param([switch]$Force, [switch]$WhatIf)
 
-Write-Host ">>> PHASE 06/8 — ENVIRONMENT REPAIR / OPRAVY" -ForegroundColor Green
+Write-Host ">>> PHASE 60 — ENVIRONMENT REPAIR / OPRAVY" -ForegroundColor Green
 $fixes = 0; $issues = 0
 
 # 1. HOME env variable
@@ -80,6 +80,6 @@ if ($issues -eq 0) {
     Write-Host "  ⚠  $issues issues found / nalezeno" -ForegroundColor Yellow
     if (-not $Force -and -not $WhatIf) { Write-Host "  Run with -WhatIf or -Force / Spust s -WhatIf nebo -Force" -ForegroundColor Cyan }
 Write-Host ""
-Write-Host ">>> 06 — environment-repair OK" -ForegroundColor Green
-Write-Host "  issues: $issues, proceeding with phase 07" -ForegroundColor DarkGray
+Write-Host ">>> 60 — environment-repair OK" -ForegroundColor Green
+Write-Host "  issues: $issues, proceeding with phase 70" -ForegroundColor DarkGray
 }
