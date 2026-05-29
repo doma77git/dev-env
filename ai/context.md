@@ -266,3 +266,28 @@ What should I fix?
 5. **Git is optional for detect** — bootstrap works without it; suggest install for full features
 6. **Exit code** from test.ps1: 0 = all pass, 1 = some fail — use this for CI
 7. **machines.json grows forever** — append-only; suggest truncation after 100+ entries
+
+---
+
+## TODO / ROADMAP
+
+| Status | Item |
+|---|---|
+| 🟠 | `scripts/setup-work.ps1` — corporate PC setup (proxy, VPN, restricted) |
+| 🟠 | `scripts/setup-lab.ps1` — lab VM setup (WSL, scoop, experimental) |
+| 🟠 | Deep merge in `profile.ps1` — nested keys from base not preserved |
+| 🟠 | Git push blocked — email privacy. User must fix at github.com/settings/emails |
+
+---
+
+## SYNC / SYNCHRONIZACE
+
+| What | Where | How | When |
+|---|---|---|---|
+| `bootstrap.ps1/.sh` | Gist | Manual copy from repo | When changed |
+| Repo | GitHub | `git push/pull` | On demand |
+| `~/.dev-env/repo/` | Local clone | `git pull` (bootstrap or menu) | On each run |
+| `machines.json` | **Local only** | Never sync | — |
+| `~/.dev-env/config/` | **Local only** | Never sync | — |
+| `~/.ssh/` | **Local only** | Never sync | — |
+| Configs (`~/.gitconfig`...) | Symlink from repo | `link-configs.ps1` | After setup |

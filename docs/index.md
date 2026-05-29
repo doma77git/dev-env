@@ -131,6 +131,16 @@ Doporučená struktura projektů:
 
 ---
 
+## 🟠 TODO
+
+| Co | Stav |
+|---|---|
+| `scripts/setup-work.ps1` | Firemní instalace (proxy, VPN) |
+| `scripts/setup-lab.ps1` | Testovací VM (WSL, scoop) |
+| Deep merge v profile.ps1 | Shallow merge zatím |
+
+---
+
 ## 🧠 Pro AI agenty
 
 - **Manifest**: [`manifest.json`](../manifest.json) — autoritativní popis celého projektu

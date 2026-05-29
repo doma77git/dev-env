@@ -112,6 +112,14 @@
     ]
   },
 
+  "todo": [
+    { "item": "setup-work.ps1", "status": "pending", "desc": "Corporate PC setup — proxy, VPN, restricted packages" },
+    { "item": "setup-lab.ps1",  "status": "pending", "desc": "Lab VM setup — WSL, scoop, experimental tools" },
+    { "item": "deep merge in profile.ps1", "status": "pending", "desc": "Shallow merge currently; nested keys from base not preserved" },
+    { "item": "Git autocrlf=input", "status": "pending", "desc": "Apply core.autocrlf=input to avoid CRLF warnings" },
+    { "item": "Setup alias for git push", "status": "pending", "desc": "GitHub push blocked — email privacy. Fix at github.com/settings/emails" }
+  ],
+
   "pages": {
     "landing": {
       "url": "https://doma77git.github.io/dev-env",

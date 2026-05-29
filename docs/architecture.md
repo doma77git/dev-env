@@ -68,6 +68,17 @@ $env:USERDOMAIN
 Uživatel může přepsat:  -Set home|work|lab
 ```
 
+## TODO / Roadmap
+
+| Stav | Položka |
+|---|---|
+| 🟠 | `setup-work.ps1` — firemní instalace |
+| 🟠 | `setup-lab.ps1` — testovací VM |
+| 🟠 | Deep merge v `profile.ps1` |
+| 🟠 | Git push — email privacy fix |
+
+---
+
 ## Verzování / Versioning
 
 | Vrstva | Jak |
