@@ -44,9 +44,35 @@ if ($hasWinget) {
     Write-Host "  OK  winget found" -ForegroundColor Green
 } else {
     Write-Host "  MISS winget not available" -ForegroundColor Yellow
-    Write-Host "  RECOMMEND: App Installer from Microsoft Store" -ForegroundColor DarkGray
-    Write-Host "    https://apps.microsoft.com/detail/9nblggh4nns1" -ForegroundColor DarkGray
-    Write-Host "  (pre-installed on Windows 10 1809+ and Windows 11)" -ForegroundColor DarkGray
+    Write-Host "  TRY: direct install from GitHub ..." -ForegroundColor Yellow
+    
+    # Microsoft Desktop App Installer (includes winget)
+    $wingetBundleUrl = "https://github.com/microsoft/winget-cli/releases/download/v1.9.25200/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle"
+    $wingetBundle = Join-Path $env:TEMP "DesktopAppInstaller.msixbundle"
+    $vclibUrl = "https://aka.ms/Microsoft.VCLibs.x64.14.00.Desktop.appx"
+    $vclib = Join-Path $env:TEMP "VCLibs.appx"
+    
+    try {
+        # Step 1: VCLibs dependency
+        Write-Host "    Downloading VCLibs ..." -ForegroundColor DarkGray
+        (New-Object Net.WebClient).DownloadFile($vclibUrl, $vclib)
+        Write-Host "    Installing VCLibs ..." -ForegroundColor Yellow
+        Add-AppxPackage -Path $vclib -ErrorAction SilentlyContinue
+        
+        # Step 2: DesktopAppInstaller (winget)
+        Write-Host "    Downloading winget bundle ..." -ForegroundColor DarkGray
+        (New-Object Net.WebClient).DownloadFile($wingetBundleUrl, $wingetBundle)
+        Write-Host "    Installing winget ..." -ForegroundColor Yellow
+        Add-AppxPackage -Path $wingetBundle -ErrorAction Stop
+        
+        Remove-Item $wingetBundle, $vclib -Force -ErrorAction SilentlyContinue
+        Write-Host "    winget installed!" -ForegroundColor Green
+        $hasWinget = $true
+    } catch {
+        Write-Host "    winget install failed: $_" -ForegroundColor Red
+        Write-Host "  FALLBACK: manual install from Store" -ForegroundColor DarkGray
+        Write-Host "    https://apps.microsoft.com/detail/9nblggh4nns1" -ForegroundColor DarkGray
+    }
 }
 
 # ═══ TOOL: PowerShell 7 — check→recommend→try→run ═══════════════
@@ -64,22 +90,27 @@ if ($hasPwsh) {
     Write-Host "  MISS PowerShell 7 not installed" -ForegroundColor Yellow
 
     # RECOMMEND
-    Write-Host "  RECOMMEND: winget install Microsoft.PowerShell" -ForegroundColor DarkGray
-    if (-not $hasWinget) {
-        Write-Host "  FALLBACK: https://github.com/PowerShell/PowerShell/releases" -ForegroundColor DarkGray
+    if ($hasWinget) {
+        Write-Host "  RECOMMEND: winget install Microsoft.PowerShell" -ForegroundColor DarkGray
+    } else {
+        Write-Host "  RECOMMEND: download from GitHub releases" -ForegroundColor DarkGray
     }
 
-    # TRY
-    if ($hasWinget -and -not $WhatIf) {
+    # TRY — winget preferred, else direct MSI
+    if ($WhatIf) {
+        if ($hasWinget) {
+            Write-Host "  [WHATIF] Would: winget install --id Microsoft.PowerShell" -ForegroundColor DarkCyan
+        } else {
+            Write-Host "  [WHATIF] Would: download MSI from GitHub" -ForegroundColor DarkCyan
+        }
+    } elseif ($hasWinget) {
         Write-Host "  TRY: winget install --id Microsoft.PowerShell ..." -ForegroundColor Yellow
         try {
             winget install --id Microsoft.PowerShell --accept-source-agreements --silent 2>&1 | Out-Null
-            Write-Host "  Installed — restart terminal or refresh PATH" -ForegroundColor Green
+            Write-Host "  Installed" -ForegroundColor Green
         } catch {
             Write-Host "  FAIL: $_" -ForegroundColor Red
         }
-    } elseif ($WhatIf) {
-        Write-Host "  [WHATIF] Would: winget install --id Microsoft.PowerShell" -ForegroundColor DarkCyan
     } else {
         Write-Host "  TRY: direct download from GitHub ..." -ForegroundColor Yellow
         $pwshMsiUrl = "https://github.com/PowerShell/PowerShell/releases/download/v7.4.6/PowerShell-7.4.6-win-x64.msi"
@@ -146,12 +177,13 @@ if ($hasWt) {
     Write-Host "  MISS Windows Terminal not installed" -ForegroundColor Yellow
 
     # RECOMMEND
-    Write-Host "  RECOMMEND: winget install Microsoft.WindowsTerminal" -ForegroundColor DarkGray
-    if (-not $hasWinget) {
-        Write-Host "  FALLBACK: https://apps.microsoft.com/detail/9n0dx20hk701" -ForegroundColor DarkGray
+    if ($hasWinget) {
+        Write-Host "  RECOMMEND: winget install Microsoft.WindowsTerminal" -ForegroundColor DarkGray
+    } else {
+        Write-Host "  RECOMMEND: https://apps.microsoft.com/detail/9n0dx20hk701" -ForegroundColor DarkGray
     }
 
-    # TRY
+    # TRY — winget only for now (WT has no simple offline installer)
     if ($hasWinget -and -not $WhatIf) {
         Write-Host "  TRY: winget install --id Microsoft.WindowsTerminal ..." -ForegroundColor Yellow
         try {
@@ -191,13 +223,20 @@ if ($hasGit) {
     Write-Host "  MISS Git not installed" -ForegroundColor Yellow
 
     # RECOMMEND
-    Write-Host "  RECOMMEND: winget install Git.Git" -ForegroundColor DarkGray
-    if (-not $hasWinget) {
-        Write-Host "  FALLBACK: https://git-scm.com/download/win" -ForegroundColor DarkGray
+    if ($hasWinget) {
+        Write-Host "  RECOMMEND: winget install Git.Git" -ForegroundColor DarkGray
+    } else {
+        Write-Host "  RECOMMEND: download from git-scm.com" -ForegroundColor DarkGray
     }
 
-    # TRY
-    if ($hasWinget -and -not $WhatIf) {
+    # TRY — winget preferred, else direct download
+    if ($WhatIf) {
+        if ($hasWinget) {
+            Write-Host "  [WHATIF] Would: winget install --id Git.Git" -ForegroundColor DarkCyan
+        } else {
+            Write-Host "  [WHATIF] Would: download Git installer" -ForegroundColor DarkCyan
+        }
+    } elseif ($hasWinget) {
         Write-Host "  TRY: winget install --id Git.Git ..." -ForegroundColor Yellow
         try {
             winget install --id Git.Git --accept-source-agreements --silent 2>&1 | Out-Null
@@ -205,8 +244,6 @@ if ($hasGit) {
         } catch {
             Write-Host "  FAIL: $_" -ForegroundColor Red
         }
-    } elseif ($WhatIf) {
-        Write-Host "  [WHATIF] Would: winget install --id Git.Git" -ForegroundColor DarkCyan
     } else {
         Write-Host "  TRY: direct download from GitHub ..." -ForegroundColor Yellow
         $gitExeUrl = "https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.2/Git-2.47.1.2-64-bit.exe"
