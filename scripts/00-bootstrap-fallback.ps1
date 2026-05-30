@@ -236,33 +236,30 @@ if ($null -eq $wtFinal) { $missing += "Windows Terminal" }
 $gitFinal = $null; try { $gitFinal = Get-Command git -ErrorAction Stop } catch {}
 if ($null -eq $gitFinal) { $missing += "Git" }
 
+# Launch pwsh in a new window (gets fresh PATH from MSI install)
+$pwshExe = if ($pwshFound -and (Test-Path $pwshFound)) { $pwshFound } else { "pwsh" }
+$tempScript = Join-Path $env:TEMP "dev-env-bootstrap.ps1"
+@"
+Write-Host ">>> Starting main bootstrap in fresh PowerShell 7 window..." -ForegroundColor Cyan
+irm $BootstrapUrl | iex
+Write-Host ""
+Write-Host "=== Pipeline complete. You can close this window. ===" -ForegroundColor Green
+"@ | Set-Content $tempScript -Encoding UTF8
+
 if ($missing.Count -eq 0) {
     Write-Host ""
-    Write-Host "  All prerequisites ready. Launching main bootstrap:" -ForegroundColor Green
-    Write-Host "    pwsh -NoProfile -Command irm $BootstrapUrl | iex" -ForegroundColor White
+    Write-Host "  All prerequisites ready!" -ForegroundColor Green
+    Write-Host "  Spawning new pwsh window with main bootstrap ..." -ForegroundColor Cyan
+    Write-Host "  (new window gets fresh PATH from install)" -ForegroundColor DarkGray
+    Start-Process -FilePath $pwshExe -ArgumentList "-NoProfile -NoLogo -File `"$tempScript`"" -WindowStyle Normal
+} elseif ($null -ne $pwshFound) {
     Write-Host ""
-    # Auto-launch pwsh with bootstrap
-    try {
-        $pwshExe2 = if (Test-Path $pwshFinal) { $pwshFinal } else { "pwsh" }
-        Start-Process $pwshExe2 -ArgumentList "-NoProfile -NoLogo -Command `"irm $BootstrapUrl | iex; Write-Host 'Press any key...'; `$null = `$Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')`"" -Wait
-    } catch {
-        Write-Host "  Auto-launch failed — run manually:" -ForegroundColor Red
-        Write-Host "    pwsh -NoProfile -Command `"irm $BootstrapUrl | iex`"" -ForegroundColor Cyan
-    }
-} elseif ($null -ne $pwshFinal) {
-    Write-Host ""
-    Write-Host "  pwsh is ready! Launching main bootstrap:" -ForegroundColor Green
-    try {
-        $pwshExe = if (Test-Path $pwshFinal) { $pwshFinal } else { "pwsh" }
-        Start-Process $pwshExe -ArgumentList "-NoProfile -NoLogo -Command `"irm $BootstrapUrl | iex; Write-Host 'Press any key...'; `$null = `$Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')`"" -Wait
-    } catch {
-        Write-Host "  Auto-launch failed — run manually:" -ForegroundColor Red
-        Write-Host "    pwsh -NoProfile -Command `"irm $BootstrapUrl | iex`"" -ForegroundColor Cyan
-    }
+    Write-Host "  pwsh is ready! Spawning new window with main bootstrap ..." -ForegroundColor Cyan
+    Start-Process -FilePath $pwshExe -ArgumentList "-NoProfile -NoLogo -File `"$tempScript`"" -WindowStyle Normal
 } else {
     Write-Host ""
     Write-Host "  Still missing: $($missing -join ', ')" -ForegroundColor Yellow
-    if ($null -eq $pwshFinal) {
+    if ($null -eq $pwshFound) {
         Write-Host "  PowerShell 7 is critical — install it first" -ForegroundColor Red
     }
     Write-Host "  Then run:" -ForegroundColor Yellow
