@@ -105,14 +105,13 @@ if (Test-Path $phase30) {
     Write-Host ">>> PHASE 30 — REPOSITORY CLONE (inline)" -ForegroundColor Cyan
     $RepoUrl = "https://github.com/doma77git/dev-env"
     $RepoDir = Join-Path $env:USERPROFILE ".dev-env/repo"
-    if ($WhatIf) {
-        Write-Host "  [WHATIF] Would clone $RepoUrl → $RepoDir" -ForegroundColor DarkCyan
+    # Clone/pull always runs — read-only, needed for later phase scripts
+    if ((Test-Path $RepoDir) -and (Test-Path "$RepoDir\.git")) {
+        git -C $RepoDir pull origin master 2>$null
+        Write-Host "  ✅  Pull complete" -ForegroundColor Green
     } else {
-        if ((Test-Path $RepoDir) -and (Test-Path "$RepoDir\.git")) {
-            git -C $RepoDir pull origin master 2>$null
-        } else {
-            git clone -b master $RepoUrl $RepoDir 2>$null
-        }
+        git clone -b master $RepoUrl $RepoDir 2>$null
+        Write-Host "  ✅  Clone complete" -ForegroundColor Green
     }
     if (Test-Path "$RepoDir/scripts") {
         $ScriptsDir = "$RepoDir/scripts"

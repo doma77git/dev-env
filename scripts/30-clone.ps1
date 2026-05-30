@@ -32,26 +32,9 @@ if (-not $gitCmd) {
     exit 1
 }
 
-# ─── WhatIf ────────────────────────────────────────────────
-if ($WhatIf) {
-    Write-Host ""
-    Write-Host "  [WHATIF] Repo directory: $RepoDir" -ForegroundColor DarkCyan
-    if (Test-Path $RepoDir) {
-        $gitDir = Join-Path $RepoDir ".git"
-        if (Test-Path $gitDir) {
-            Write-Host "  [WHATIF] Would: git pull origin master (fetch + merge)" -ForegroundColor DarkCyan
-        } else {
-            Write-Host "  [WHATIF] Would: remove broken directory, then git clone" -ForegroundColor DarkCyan
-        }
-    } else {
-        Write-Host "  [WHATIF] Would: git clone -b master $RepoUrl $RepoDir" -ForegroundColor DarkCyan
-    }
-    Write-Host ""
-    Write-Host ">>> 30 — repository-clone OK (dry-run)" -ForegroundColor Green
-    return
-}
-
-# ─── Clone or pull ─────────────────────────────────────────
+# ─── Clone or pull (always runs — read-only, not a mutation)
+#      Clone/pull always executes even in dry-run mode because
+#      later phases (detect/report) need scripts from the repo.
 Write-Host ""
 
 if ((Test-Path $RepoDir) -and (Test-Path "$RepoDir\.git")) {
