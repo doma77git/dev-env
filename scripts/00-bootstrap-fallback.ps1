@@ -241,9 +241,13 @@ $pwshExe = if ($pwshFound -and (Test-Path $pwshFound)) { $pwshFound } else { "pw
 $tempScript = Join-Path $env:TEMP "dev-env-bootstrap.ps1"
 @"
 Write-Host ">>> Starting main bootstrap in fresh PowerShell 7 window..." -ForegroundColor Cyan
+Write-Host ""
+if (`$WhatIf) { `$env:DEV_ENV_WHATIF = '1' }
 irm $BootstrapUrl | iex
 Write-Host ""
-Write-Host "=== Pipeline complete. You can close this window. ===" -ForegroundColor Green
+Write-Host "=== Pipeline complete ===" -ForegroundColor Green
+Write-Host "Press Enter to close this window..." -ForegroundColor Cyan
+`$null = Read-Host
 "@ | Set-Content $tempScript -Encoding UTF8
 
 if ($missing.Count -eq 0) {
