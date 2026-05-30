@@ -81,7 +81,19 @@ if ($hasPwsh) {
     } elseif ($WhatIf) {
         Write-Host "  [WHATIF] Would: winget install --id Microsoft.PowerShell" -ForegroundColor DarkCyan
     } else {
-        Write-Host "  SKIP: no winget, install manually from URL above" -ForegroundColor Yellow
+        Write-Host "  TRY: direct download from GitHub ..." -ForegroundColor Yellow
+        $pwshMsiUrl = "https://github.com/PowerShell/PowerShell/releases/download/v7.4.6/PowerShell-7.4.6-win-x64.msi"
+        $pwshMsi = Join-Path $env:TEMP "PowerShell-7.4.6-win-x64.msi"
+        try {
+            Write-Host "    Downloading $pwshMsiUrl ..." -ForegroundColor DarkGray
+            (New-Object Net.WebClient).DownloadFile($pwshMsiUrl, $pwshMsi)
+            Write-Host "    Installing via msiexec ..." -ForegroundColor Yellow
+            Start-Process msiexec.exe -ArgumentList "/i `"$pwshMsi`" /quiet /norestart ADD_EXPLORER_CONTEXT_MENU_OPENPOWERSHELL=1 ADD_FILE_CONTEXT_MENU_RUN_POWERSHELL=1 ENABLE_PSREMOTING=1 REGISTER_MANIFEST=1" -Wait
+            Remove-Item $pwshMsi -Force -ErrorAction SilentlyContinue
+            Write-Host "    pwsh installed" -ForegroundColor Green
+        } catch {
+            Write-Host "    Direct download failed: $_" -ForegroundColor Red
+        }
     }
 }
 
@@ -91,7 +103,7 @@ try { $pwshCmd2 = Get-Command pwsh -ErrorAction Stop } catch {}
 if ($null -ne $pwshCmd2) {
     Write-Host "  RUN: pwsh verified OK" -ForegroundColor Green
 } else {
-    Write-Host "  RUN: pwsh not yet available — may need PATH refresh" -ForegroundColor Yellow
+    Write-Host "  RUN: pwsh not yet available — refresh PATH or reopen terminal" -ForegroundColor Yellow
 }
 
 # ═══ TOOL: Windows Terminal — check→recommend→try→run ═══════════
@@ -202,13 +214,32 @@ if ($null -eq $gitFinal) { $missing += "Git" }
 
 if ($missing.Count -eq 0) {
     Write-Host ""
-    Write-Host "  All prerequisites ready. Run the main bootstrap:" -ForegroundColor Green
+    Write-Host "  All prerequisites ready. Launching main bootstrap:" -ForegroundColor Green
+    Write-Host "    pwsh -NoProfile -Command irm $BootstrapUrl | iex" -ForegroundColor White
     Write-Host ""
-    Write-Host "    pwsh -NoProfile -Command `"irm $BootstrapUrl | iex`"" -ForegroundColor White
+    # Auto-launch pwsh with bootstrap
+    try {
+        Start-Process pwsh -ArgumentList "-NoProfile -NoLogo -Command `"irm $BootstrapUrl | iex; Write-Host 'Press any key...'; `$null = `$Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')`"" -Wait
+    } catch {
+        Write-Host "  Auto-launch failed — run manually:" -ForegroundColor Red
+        Write-Host "    pwsh -NoProfile -Command `"irm $BootstrapUrl | iex`"" -ForegroundColor Cyan
+    }
+} elseif ($null -ne $pwshFinal) {
+    Write-Host ""
+    Write-Host "  pwsh is ready! Launching main bootstrap:" -ForegroundColor Green
+    try {
+        Start-Process pwsh -ArgumentList "-NoProfile -NoLogo -Command `"irm $BootstrapUrl | iex; Write-Host 'Press any key...'; `$null = `$Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')`"" -Wait
+    } catch {
+        Write-Host "  Auto-launch failed — run manually:" -ForegroundColor Red
+        Write-Host "    pwsh -NoProfile -Command `"irm $BootstrapUrl | iex`"" -ForegroundColor Cyan
+    }
 } else {
     Write-Host ""
     Write-Host "  Still missing: $($missing -join ', ')" -ForegroundColor Yellow
-    Write-Host "  Install manually, then run:" -ForegroundColor Yellow
+    if ($null -eq $pwshFinal) {
+        Write-Host "  PowerShell 7 is critical — install it first" -ForegroundColor Red
+    }
+    Write-Host "  Then run:" -ForegroundColor Yellow
     Write-Host "    pwsh -NoProfile -Command `"irm $BootstrapUrl | iex`"" -ForegroundColor White
 }
 Write-Host ""
