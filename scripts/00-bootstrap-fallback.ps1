@@ -208,17 +208,41 @@ if ($hasGit) {
     } elseif ($WhatIf) {
         Write-Host "  [WHATIF] Would: winget install --id Git.Git" -ForegroundColor DarkCyan
     } else {
-        Write-Host "  SKIP: no winget, install manually from URL above" -ForegroundColor Yellow
+        Write-Host "  TRY: direct download from GitHub ..." -ForegroundColor Yellow
+        $gitExeUrl = "https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.2/Git-2.47.1.2-64-bit.exe"
+        $gitExe = Join-Path $env:TEMP "Git-2.47.1.2-64-bit.exe"
+        try {
+            Write-Host "    Downloading $gitExeUrl ..." -ForegroundColor DarkGray
+            (New-Object Net.WebClient).DownloadFile($gitExeUrl, $gitExe)
+            Write-Host "    Installing Git (silent) ..." -ForegroundColor Yellow
+            Start-Process $gitExe -ArgumentList "/VERYSILENT /NORESTART /NOCANCEL /SP- /NOICONS /COMPONENTS=icons,ext,ext\reg,assoc,assoc_sh" -Wait
+            Remove-Item $gitExe -Force -ErrorAction SilentlyContinue
+            Write-Host "    Git installed" -ForegroundColor Green
+        } catch {
+            Write-Host "    Direct download failed: $_" -ForegroundColor Red
+        }
     }
 }
 
-# RUN — verify
+# RUN — verify (check PATH + direct paths)
+$gitPaths = @(
+    "${env:ProgramFiles}\Git\bin\git.exe",
+    "${env:ProgramFiles(x86)}\Git\bin\git.exe"
+)
 $gitCmd2 = $null
 try { $gitCmd2 = Get-Command git -ErrorAction Stop } catch {}
 if ($null -ne $gitCmd2) {
     Write-Host "  RUN: git verified OK" -ForegroundColor Green
 } else {
-    Write-Host "  RUN: git not yet available — may need PATH refresh" -ForegroundColor Yellow
+    # Try direct paths
+    $gitFound = $null
+    foreach ($p in $gitPaths) { if (Test-Path $p) { $gitFound = $p; break } }
+    if ($gitFound) {
+        Write-Host "  RUN: git found at $gitFound" -ForegroundColor Green
+        $env:PATH = "$(Split-Path $gitFound -Parent);$env:PATH"
+    } else {
+        Write-Host "  RUN: git not found" -ForegroundColor Yellow
+    }
 }
 
 # ═══ HAND OFF ═══════════════════════════════════════════════════
