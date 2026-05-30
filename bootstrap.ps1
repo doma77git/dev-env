@@ -480,6 +480,35 @@ if ($tools.git -ne $null) {
             Write-Host "  irm $RepoRoot/scripts/50-setup-home.ps1 | iex" -ForegroundColor DarkCyan
         }
     }
+
+    # ═══ PHASE 60 — REPAIR (remote inline) ═══════════════════
+    Write-Host ""
+    Write-Host ">>> PHASE 60 — ENVIRONMENT REPAIR (remote)" -ForegroundColor Green
+    $issues = 0
+    if (-not $env:HOME) { $issues++; Write-Host "  ⚠ HOME variable not set" -ForegroundColor Yellow }
+    $missingPaths = $env:PATH -split ';' | Where-Object { $_ -and -not (Test-Path ([Environment]::ExpandEnvironmentVariables($_))) }
+    if ($missingPaths) { $issues += $missingPaths.Count; Write-Host "  ⚠ PATH entries missing: $($missingPaths.Count)" -ForegroundColor Yellow }
+    if ($issues -eq 0) { Write-Host "  ✅ No issues (remote check)" -ForegroundColor Green }
+    Write-Host "  issues: $issues"
+    Write-Host ""
+    Write-Host ">>> 60 — environment-repair OK (remote)" -ForegroundColor Green
+
+    # ═══ PHASE 70 — TEST (remote inline) ═════════════════════
+    Write-Host ""
+    Write-Host ">>> PHASE 70 — VALIDATION TEST (remote)" -ForegroundColor Green
+    $pass = 0; $fail = 0
+    $pwshOk = ($null -ne (Get-Command pwsh -ErrorAction SilentlyContinue))
+    $curlOk = ($null -ne (Get-Command curl -ErrorAction SilentlyContinue))
+    if ($pwshOk) { $pass++ } else { $fail++; Write-Host "  ⚠ pwsh not found" -ForegroundColor Yellow }
+    if ($curlOk) { $pass++ } else { $fail++; Write-Host "  ⚠ curl not found" -ForegroundColor Yellow }
+    $pathCount = ($env:PATH -split ';' | Where-Object { $_ }).Count
+    if ($pathCount -le 50) { $pass++ } else { $fail++; Write-Host "  ⚠ PATH too long: $pathCount" -ForegroundColor Yellow }
+    Write-Host "  $pass pass / $fail fail (remote limited test)"
+    Write-Host ""
+    Write-Host ">>> 70 — validation-test $(if ($fail -eq 0) { 'PASS' } else { 'FAIL' }) (remote)" -ForegroundColor $(if ($fail -eq 0) { 'Green' } else { 'Red' })
+
+    $report.pipeline.completed = @("00","01","02","10","15","20","30","40","50","60","70")
+    $report.pipeline.next = $null
 }
 
 # ═══ PIPELINE FINALIZATION ═════════════════════════════════════

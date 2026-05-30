@@ -30,10 +30,10 @@ while ($true) {
     Write-Host ""
 
     switch ($choice) {
-        "1" { & "$repoDir\scripts\profile.ps1" }
-        "2" { & "$repoDir\bootstrap.ps1" }
-        "3" { & "$repoDir\scripts\repair.ps1" -WhatIf }
-        "4" { & "$repoDir\scripts\test.ps1" }
+        "1" { & "$repoDir\scripts\40-profile.ps1" }
+        "2" { & "$repoDir\scripts\50-setup-home.ps1" -WhatIf }
+        "3" { & "$repoDir\scripts\60-repair.ps1" -WhatIf }
+        "4" { & "$repoDir\scripts\70-test.ps1" }
         "5" { 
             $latest = Get-ChildItem "$env:USERPROFILE\.dev-env\report-*.json" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
             if ($latest) { Get-Content $latest.FullName -Raw } else { Write-Host "  No report / žádný report" }
