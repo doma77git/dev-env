@@ -44,6 +44,9 @@ if ((Test-Path $RepoDir) -and (Test-Path "$RepoDir\.git")) {
         git -C $RepoDir fetch origin
         git -C $RepoDir checkout master 2>$null
         git -C $RepoDir pull origin master
+        # Force checkout HEAD — remove and recreate scripts/ to ensure new files
+        Remove-Item -Path (Join-Path $RepoDir "scripts") -Recurse -Force -ErrorAction SilentlyContinue
+        git -C $RepoDir checkout HEAD -- scripts/ 2>$null
         # Fix tracking if misconfigured
         $upstream = git -C $RepoDir rev-parse --abbrev-ref '@{upstream}' 2>$null
         if ($upstream -notmatch 'origin/master') {

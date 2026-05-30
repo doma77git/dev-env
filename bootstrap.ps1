@@ -108,7 +108,8 @@ if (Test-Path $phase30) {
     # Clone/pull always runs — read-only, needed for later phase scripts
     if ((Test-Path $RepoDir) -and (Test-Path "$RepoDir\.git")) {
         git -C $RepoDir pull origin master 2>$null
-        # Force checkout HEAD to ensure new files appear after merge
+        # Force checkout HEAD — remove and recreate scripts/ to ensure new files
+        Remove-Item -Path (Join-Path $RepoDir "scripts") -Recurse -Force -ErrorAction SilentlyContinue
         git -C $RepoDir checkout HEAD -- scripts/ 2>$null
         Write-Host "  ✅  Pull complete" -ForegroundColor Green
     } else {
