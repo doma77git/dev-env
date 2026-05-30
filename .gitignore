@@ -1,3 +1,9 @@
 data/*.json
 !data/.gitkeep
 *.log
+
+# Internal tool data — not part of the project
+.reasonix/
+
+# Design conversation transcripts — contain personal environment data (PII)
+Potřebuji vybudovat*.md

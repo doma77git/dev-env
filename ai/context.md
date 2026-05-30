@@ -1,7 +1,7 @@
 # 🤖 AI CONTEXT — dev-env
 
 > **Read this first.** Everything you need to understand and operate this project.
-> Valid for: GPT, Claude, Reasonix, local models. OS-independent.
+> Valid for: GPT, Claude, Reasonix, CodeWhale, local models. OS-independent.
 
 ---
 
