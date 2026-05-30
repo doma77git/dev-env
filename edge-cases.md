@@ -2,143 +2,109 @@
 
 ## E1 — PS5.1 (Windows PowerShell)
 
-**Detekce:** Phase 02 (`02-core-check.ps1`)
-**Reakce:** exit 1 + tisk příkazu
+**Detekce:** Phase 00 (`00-core-check.ps1`)
+**Reakce:** exit 1 + tisk příkazu (nikdy neinstaluje)
 **Kód:**
 ```powershell
-if ($psMajor -lt 7) {
-    Write-Host "❌ Windows PowerShell $psVersion — 7+ required" -ForegroundColor Red
-    Write-Host "DOPORUČENÍ: winget install Microsoft.PowerShell" -ForegroundColor Yellow
+if ($psVer -lt 7) {
+    Write-Host "  ❌  PowerShell $psVer — 7+ required" -ForegroundColor Red
+    Write-Host "      winget install Microsoft.PowerShell" -ForegroundColor Cyan
     exit 1
 }
 ```
-**Důvod:** Pravidlo 3 — kritická závislost, bez PS7 nelze používat `??`, `-Parallel`, `Invoke-Expression` s moderními konstrukty.
+**Důvod:** Pravidlo 3 z metapromptu — kritická závislost, bez PS7 nelze používat moderní konstrukty.
 
 ---
 
-## E2 — Offline (gist nedostupný)
+## E2 — Offline (gist/github nedostupný)
 
-**Detekce:** Phase 02, connectivity check
-**Reakce:** exit 1 + návod
+**Detekce:** Phase 00, connectivity check
+**Reakce:** warning, pokračuje (clone/pull přeskočí)
 **Kód:**
 ```powershell
 try {
-    $null = Invoke-WebRequest -Uri $gistTestUrl -Method Head -TimeoutSec 5 -ErrorAction Stop
+    $ping = Test-Connection "github.com" -Count 1 -Quiet -ErrorAction SilentlyContinue
+    if (-not $ping) { Write-Host "  ⚠️  github.com unreachable (offline?)" -ForegroundColor Yellow }
 } catch {
-    Write-Host "❌ Cannot reach GitHub Gist" -ForegroundColor Red
-    Write-Host "Zkontroluj proxy:"
-    Write-Host "  `$env:HTTP_PROXY = 'http://proxy:port'"
-    exit 1
+    Write-Host "  ⚠️  Connectivity check failed" -ForegroundColor Yellow
 }
 ```
 **Edge:** Proxy autodetekce není implementovaná — musíš nastavit ručně nebo spoléhat na systémový proxy.
 
-**Vylepšení (budoucí):**
-```powershell
-# Proxy autodetection for Phase 02
-$proxyReg = Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings" -ErrorAction SilentlyContinue
-if ($proxyReg.ProxyServer -and -not $env:HTTP_PROXY) {
-    $env:HTTP_PROXY = "http://$($proxyReg.ProxyServer)"
-    $env:HTTPS_PROXY = "http://$($proxyReg.ProxyServer)"
-}
-```
-
 ---
 
-## E3 — Git missing + HOME
+## E3 — Git missing
 
-**Detekce:** Phase 30 clone
-**Reakce:** Dotaz "Chceš nainstalovat git?"
+**Detekce:** Phase 00 (`00-core-check.ps1`)
+**Reakce:** exit 1 + doporučení (nikdy neinstaluje)
 **Kód:**
 ```powershell
 if (-not $gitCmd) {
-    if ($safeMode) {
-        # CORPORATE: remote fallback, no install
-        Write-Host "⚠ Git not available — using remote fallback" -ForegroundColor Yellow
-        $usingFallback = $true
-    } else {
-        # HOME: ask
-        if (Confirm-Action "Install Git? (needed for local repo)" 5) {
-            winget install Git.Git --accept-source-agreements
-            # Re-check after install
-            try { $gitCmd = Get-Command git -ErrorAction Stop } catch {}
-        }
-        if (-not $gitCmd) {
-            Write-Host "Using remote fallback (limited functionality)" -ForegroundColor Yellow
-            $usingFallback = $true
-        }
-    }
+    Write-Host "  ❌  Git not found / nenalezen" -ForegroundColor Red
+    Write-Host "      Recommend: winget install Git.Git" -ForegroundColor Cyan
+    Write-Host "      Download:  https://git-scm.com/downloads" -ForegroundColor DarkGray
+    $criticalFails += "Git not found — clone phase requires it"
 }
 ```
 
 ---
 
-## E4 — Git missing + WORK/SERVER
+## E4 — Prázdný / poškozený klon
 
-**Detekce:** Phase 30 clone
-**Reakce:** Warn → remote fallback → pokračovat
+**Detekce:** Phase 30 — `Test-Path "$RepoDir\.git"` v `30-clone.ps1`
+**Reakce:** Smaže `scripts/` a checkoutne z HEAD
 **Kód:**
 ```powershell
-# WORK/SERVER = git optional, remote fallback OK
-if (-not $gitCmd) {
-    Write-Host "⚠ Git not available — using remote fallback" -ForegroundColor Yellow
-    Write-Host "  Install later: winget install Git.Git" -ForegroundColor DarkGray
+if ((Test-Path $RepoDir) -and (Test-Path "$RepoDir\.git")) {
+    git -C $RepoDir pull origin master
+    # Force checkout — remove and recreate scripts/ to ensure new files
+    Remove-Item -Path (Join-Path $RepoDir "scripts") -Recurse -Force -ErrorAction SilentlyContinue
+    git -C $RepoDir checkout HEAD -- scripts/ 2>$null
+} elseif (Test-Path $RepoDir) {
+    # Broken repo — remove and reclone
+    Remove-Item $RepoDir -Recurse -Force
+    git clone -b master $RepoUrl $RepoDir
+} else {
+    git clone -b master $RepoUrl $RepoDir
 }
 ```
 
 ---
 
-## E5 — Prázdný / poškozený klon
+## E5 — Headless (no console, pipe, CI)
 
-**Detekce:** Phase 30 clone — `Test-Path "$RepoDir\.git"`
-**Reakce:** Smaže a znovu naklonuje (git) nebo stáhne ZIP
-**Kód:**
-```powershell
-if (Test-Path $RepoDir) {
-    if (-not (Test-Path "$RepoDir\.git")) {
-        # Broken clone — remove and reclone
-        Remove-Item $RepoDir -Recurse -Force
-        git clone -b master $RepoUrl $RepoDir
-    } else {
-        git -C $RepoDir pull
-    }
-}
-```
-
----
-
-## E6 — Headless (no console, pipe, CI)
-
-**Detekce:** `Confirm-Action` internally
+**Detekce:** `Confirm-Action` interně
 **Reakce:** timeout → skip (automaticky)
 **Kód:**
 ```powershell
 function Confirm-Action {
     $interactive = (-not [Console]::IsInputRedirected) -and [Environment]::UserInteractive
     if (-not $interactive) {
-        Write-Host "[HEADLESS] $Message → SKIP"
+        Write-Host "  [HEADLESS] $Message -> SKIP"
         return $false
     }
-    # ... 5s countdown ...
+    # ... 10s countdown ...
 }
 ```
 
 ---
 
-## E7 — Corrupted machines.json
+## E6 — Corrupted machines.json
 
 **Detekce:** Phase 10 — `try { ConvertFrom-Json } catch {}`
 **Reakce:** Ignorovat — začít s prázdnou historií
 **Kód:**
 ```powershell
+$machines = @()
 if (Test-Path $machinesFile) {
     try { $machines = @(Get-Content $machinesFile -Raw | ConvertFrom-Json) } catch { $machines = @() }
+    $machines = @($machines)
 }
 ```
 
 ---
 
-## E8 — Symlink bez admin práv
+## E7 — Symlink bez admin práv
 
 **Detekce:** `link-configs.ps1` — `New-Item -ItemType SymbolicLink`
 **Reakce:** Fallback na `Copy-Item`
@@ -154,28 +120,43 @@ try {
 
 ---
 
-## E9 — OneDrive locked files / redirects
+## E8 — OneDrive locked files / redirects
 
 **Detekce:** Phase 10 — registry check
-**Reakce:** 60-repair varuje, nenapravuje automaticky
+**Reakce:** Phase 60 repair varuje, nenapravuje automaticky
 **Pravidlo:** Nikdy neměnit OneDrive nastavení bez potvrzení
 ```powershell
-if ($odRedirects.Count -gt 0) {
-    Write-Host "⚠ OneDrive redirects: $($odRedirects.Keys -join ', ')" -ForegroundColor Yellow
-    Write-Host "  Disable in: Settings → Backup → OneDrive folder backup" -ForegroundColor DarkGray
+# 60-repair.ps1 — detection only
+if ($v -and $v -match 'OneDrive') {
+    Write-Host "[ISSUE] OneDrive redirects $n → $v" -ForegroundColor Yellow
+    # Jen varování, žádná změna
 }
 ```
 
 ---
 
-## E10 — CI/CD mode (-Force without terminal)
+## E9 — CI/CD mode (-Force without terminal)
 
 **Detekce:** `-Force` přepínač
-**Reakce:** Přeskočit všechny confirm dialogy, použít výchozí hodnoty
+**Reakce:** Přeskočit všechny confirm dialogy (ShouldProcess)
 ```powershell
-# V CI/CD: žádný interaktivní dotaz
-if ($Force) {
-    # Automaticky NE pro instalace, ANO pro read-only operace
-    $proceed = $false  # nikdy neinstalovat v CI bez explicitního --install
+# V CI/CD: ShouldProcess s -Force = přeskočit dotazy
+# setup/repair stále ukáže dry-run, pak rovnou apply
+```
+
+---
+
+## E10 — Inkompatibilní previous report
+
+**Detekce:** Phase 10 — `try/catch` kolem porovnání
+**Reakce:** Nová detekce (status = new)
+**Kód:**
+```powershell
+try {
+    # Robust comparison — handles incompatible $previous
+    $oldVal = try { $prevTools.$t } catch { $null }
+} catch {
+    Write-Host "  ⚠ Previous report format changed — treating as new detection" -ForegroundColor DarkYellow
+    $status = "new"
 }
 ```

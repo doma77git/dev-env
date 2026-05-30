@@ -1,4 +1,4 @@
-# Testovací scénáře — Pipeline v4
+# Testovací scénáře — Pipeline (00→30→10→20→40→50→60→70)
 
 Cíl: ověřit, že žádná instalace neproběhne bez potvrzení.
 
@@ -13,14 +13,14 @@ irm https://gist.github.com/doma77git/.../raw/bootstrap.ps1 | iex
 
 **Očekávání:**
 - Phase 00–70 všechny proběhnou
-- Všechny fáze 40, 50, 60, 70 skončí po dry-run
-- `[WHATIF]` nebo `(dry-run)` v každém výstupu
-- ŽÁDNÉ změny na disku, žádné instalace, žádné nové složky
+- Phase 30 clone proběhne (read-only)
+- Phase 50, 60 zobrazí dry-run → confirm timeout → skip
+- Phase 70 automatická
+- ŽÁDNÉ změny na disku (kromě report-*.json)
 
 **Kontrola:**
 ```powershell
-# Ověř, že se nic nezměnilo
-ls ~/.dev-env/  # žádné nové soubory kromě report-*.json
+ls ~/.dev-env/  # pouze report-*.json (žádné nové složky)
 ```
 
 ---
@@ -32,14 +32,13 @@ irm https://gist.github.com/doma77git/.../raw/bootstrap.ps1 | iex
 ```
 
 **Očekávání:**
-- Phase 01–30 proběhnou automaticky
-- Phase 40: zobrazí dry-run → čeká na potvrzení `[y/N] (5s)`
-- Phase 50: zobrazí dry-run → čeká na potvrzení
+- Phase 00–40 proběhnou automaticky
+- Phase 50: zobrazí dry-run → čeká na potvrzení `[y/N] (10s)`
 - Phase 60: zobrazí dry-run → čeká na potvrzení
-- Phase 70: automatická (test)
+- Phase 70: automatická
 
-**Test:** Nezmáčkni nic — timeout = skip.
-- Ověř, že po 5s se přeskočí na další fázi.
+**Test:** Nezmáčkni nic → timeout = skip.
+- Ověř, že po 10s se přeskočí na další fázi.
 - Ověř, že se nic nenainstalovalo.
 
 ---
@@ -47,88 +46,62 @@ irm https://gist.github.com/doma77git/.../raw/bootstrap.ps1 | iex
 ## T3 — Force režim (CI/CD)
 
 ```powershell
-irm https://gist.github.com/doma77git/.../raw/bootstrap.ps1 | iex
-# nelze předat -Force přímo z irm, proto:
-# lokálně:
 ./bootstrap.ps1 -Force
 ```
 
 **Očekávání:**
-- Phase 40: dry-run → přeskočit (NIKDY neinstalovat v CI bez explicitního --install)
-- Phase 50: dry-run → přeskočit
-- Phase 60: dry-run → přeskočit
+- Phase 50: dry-run → -Force přeskakuje confirm
+- Phase 60: dry-run → -Force přeskakuje confirm
 - Phase 70: automatická
-
-**POZNÁMKA:** `-Force` v CI neznamená "instaluj vše", ale "přeskoč všechny dotazy, proveď pouze read-only". Pro skutečnou instalaci v CI je potřeba explicitní přepínač `-Install`.
 
 ---
 
 ## T4 — PS5.1 (Windows PowerShell)
 
 ```powershell
-# Otevři cmd a spusť:
 powershell -NoProfile -Command "irm https://gist.github.com/.../raw/00-bootstrap-fallback.ps1 | iex"
 ```
 
 **Očekávání:**
-- Phase 02 detekuje PS5
-- Zobrazí: "❌ Windows PowerShell 5 — 7+ required"
+- Fallback detekuje PS5
+- Zobrazí: "❌ pwsh: NOT INSTALLED"
 - Zobrazí: "winget install Microsoft.PowerShell"
-- exit 1 → pipeline končí
+- exit 1 → konec
 
-**Test:** Neměla by proběhnout žádná další fáze.
+**Test:** Neměla by proběhnout žádná instalace.
 
 ---
 
-## T5 — Bez gitu (HOME)
+## T5 — Bez gitu
 
 ```powershell
-# Na čistém stroji nebo dočasně odeber git z PATH
+# Dočasně odeber git z PATH
 $env:PATH = $env:PATH -replace '.*Git[^;]*;', ''
-irm ... | iex
+irm https://gist.github.com/doma77git/.../raw/bootstrap.ps1 | iex
 ```
 
 **Očekávání:**
-- Phase 30: dotaz "❓ Install Git?"
-- Bez potvrzení: remote fallback
-- S potvrzením: winget install Git.Git
-
-**Test:** Nezmáčkni nic → timeout → remote fallback → pipeline pokračuje.
-
----
-
-## T6 — Bez gitu (WORK/SERVER safeMode)
-
-```powershell
-# Simulace: vytvoř falešný profil
-echo '{ "profile": "work" }' | Set-Content ~/.dev-env/config/profile.json
-
-# Nebo nastav doménu:
-# (nelze snadno bez domény — použij -Set work)
-irm ... | iex
-```
-
-**Očekávání:**
-- Phase 30: žádný dotaz, rovnou remote fallback
-- "⚠ Git not available — using remote fallback"
-
----
-
-## T7 — Offline
-
-```powershell
-# Odpoj internet / zablokuj gist
-irm ... | iex
-```
-
-**Očekávání:**
-- Phase 02: "❌ Cannot reach GitHub Gist"
+- Phase 00: "❌ Git not found"
+- "winget install Git.Git"
 - exit 1
-- Žádné další fáze
 
 ---
 
-## T8 — Opakovaný běh (re-run)
+## T6 — Offline
+
+```powershell
+# Odpoj internet
+irm https://gist.github.com/doma77git/.../raw/bootstrap.ps1 | iex
+```
+
+**Očekávání:**
+- Phase 00: "⚠ github.com unreachable (offline?)"
+- Warning, pokračuje dál
+- Phase 30: clone/pull selže → exit 1
+
+---
+
+## T7 — Opakovaný běh (re-run)
 
 ```powershell
 # Poprvé:
@@ -142,11 +115,11 @@ $env:DEV_ENV_WHATIF='1'; irm ... | iex
 - Poprvé: status = new 🔴
 - Podruhé: status = same 🟢
 - Phase 10: "tools: N/13 detected" (stejné)
-- Phase 15: "🟢 SAME"
+- Phase 20: "🟢 SAME"
 
 ---
 
-## T9 — Verifikace že vše zůstalo read-only
+## T8 — Verifikace že vše zůstalo read-only
 
 Po jakémkoli běhu s `-WhatIf`:
 ```powershell

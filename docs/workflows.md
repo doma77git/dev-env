@@ -8,7 +8,7 @@
 # Windows PS7 — hlavní pipeline
 irm https://gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/raw/bootstrap.ps1 | iex
 
-# Windows PS5 — fallback (nainstaluje pwsh+git, otevře nové okno s PS7)
+# Windows PS5 — fallback (detekuje, doporučí, neinstaluje)
 powershell -NoProfile -Command "irm https://gist.githubusercontent.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/raw/00-bootstrap-fallback.ps1 | iex"
 
 # Po pipeline:
@@ -17,10 +17,13 @@ cd ~/.dev-env/repo
 # Zkontroluj profil
 ./scripts/40-profile.ps1
 
-# Suchý běh instalace
+# Suchý běh instalace (ukáže co se bude instalovat)
 ./scripts/50-setup-home.ps1 -WhatIf
 
-# Instaluj
+# Instaluj (s potvrzováním každého kroku)
+./scripts/50-setup-home.ps1 -Confirm
+
+# Nebo vše najednou (až budeš připraven)
 ./scripts/50-setup-home.ps1 -Force
 
 # Oprav
@@ -34,33 +37,65 @@ cd ~/.dev-env/repo
 ### Očekávaný výstup
 
 ```
->>> PHASE 00 — BOOTSTRAP
->>> PHASE 01 — PROFILE DETECT
-  🏠 HOME — personal PC
-  ✅ Full mode — will install missing essentials
->>> PHASE 02 — CORE CHECK
-  ✅ PowerShell 7.6.2 — OK
-  ✅ Shell: pwsh 7.6.2
-  ✅ Terminal: wt
-  ✅ Installer: winget
->>> PHASE 10 — ENVIRONMENT DETECT
-  fingerprint: d924..., OS: Windows 11 Pro build 26200, tools: 8/13 detected
 ╔══════════════════════════════════════════╗
-║  🟢  SAME                                 ║
-║  REPO : https://github.com/doma77git/... ║
+║  PHASE 00 — CORE CHECK                   ║
 ╚══════════════════════════════════════════╝
->>> PHASE 20 — REPOSITORY CLONE
-  git pull → ~/.dev-env/repo
->>> PHASE 40 — ESSENTIALS / CATEGORIES
-  🖥️  TERMINAL — wt, pwsh
-  🌐  BROWSER  — chrome
-  🤖  AI       — reasonix
-  ...
->>> PHASE 70 — VALIDATION TEST
+  ✅  PowerShell 7.6.2 (Core)
+  ✅  Git: git version 2.54.0.windows.1
+  ✅  github.com reachable
+
+╔══════════════════════════════════════════╗
+║  PHASE 30 — REPOSITORY CLONE             ║
+╚══════════════════════════════════════════╝
+  Repo exists — pulling latest ...
+  ✅  Pull complete
+
+╔══════════════════════════════════════════╗
+║  PHASE 10 — ENVIRONMENT DETECT           ║
+╚══════════════════════════════════════════╝
+  fingerprint: d924..., OS: Windows 11 Pro build 26200, tools: 8/13
+
+╔══════════════════════════════════════════╗
+║  PHASE 20 — INVENTORY REPORT             ║
+╚══════════════════════════════════════════╝
+  🟢  SAME
+  REPO : https://github.com/doma77git/dev-env
+  RPT  : C:\Users\...\.dev-env\report-*.json
+
+╔══════════════════════════════════════════╗
+║  PHASE 40 — PROFILE & IDENTITY           ║
+╚══════════════════════════════════════════╝
+  Profile  : 🏠 HOME — personal PC
+  Git      : doma77 <doma77@outlook.cz> (saved)
+  GitHub   : doma77git (logged in)
+  SSH keys : 1 (rsa)
+
+╔══════════════════════════════════════════╗
+║  PHASE 50 — PACKAGE SETUP (home)        ║
+╚══════════════════════════════════════════╝
+  5.1 HOME: USERPROFILE (OK)
+  5.2 Dirs: all OK
+  5.3 Packages: 7z missing
+  5.4 Symlinks: gitconfig → new
+  5.5 Git identity: doma77 <...>
+  5.6 Git autocrlf: not set → input
+
+╔══════════════════════════════════════════╗
+║  PHASE 60 — ENVIRONMENT REPAIR          ║
+╚══════════════════════════════════════════╝
+  [ISSUE] PATH duplicita: ... (x2)
+  [ISSUE] PATH missing: ...
+  [ISSUE] OneDrive redirect: Desktop
+
+╔══════════════════════════════════════════╗
+║  PHASE 70 — VALIDATION TEST             ║
+╚══════════════════════════════════════════╝
   ✅  OS is Windows 10/11
   ✅  HOME is set
-  ✅  ~/.dev-env/ exists
+  ✅  Git installed
   ...
+  ❌  PATH no duplicates
+  ❌  OneDrive not redirecting Desktop/Documents
 === RESULT: 12 pass / 2 fail ===
 ```
 
@@ -70,6 +105,7 @@ cd ~/.dev-env/repo
 - **Firemní stroj** — bootstrap detekuje `work` profil + safeMode
 - **Server** — bootstrap detekuje `server` profil + safeMode
 - **OneDrive** — `60-repair.ps1` varuje, pokud Desktop/Documents jsou v cloudu
+- **Clone vždy běží** — i v dry-run režimu, protože je read-only
 
 ---
 
@@ -144,6 +180,8 @@ irm https://gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/raw/boots
 # WSL, scoop, experimenty
 cd ~/.dev-env/repo
 ./scripts/40-profile.ps1
+./scripts/50-setup-lab.ps1 -WhatIf
+./scripts/50-setup-lab.ps1 -Force
 ```
 
 ---

@@ -7,8 +7,8 @@
 
 ## ⚠️ Než začneš
 
-- **PowerShell 7+** — `bootstrap.ps1` vyžaduje PS7. Na PS5 spusť `00-bootstrap-fallback.ps1` (nainstaluje pwsh+wt+git)
-- **-WhatIf před -Force** — všechny skripty podporují suchý běh. Vždycky nejdřív `-WhatIf`.
+- **PowerShell 7+** — `bootstrap.ps1` vyžaduje PS7. Na PS5 spusť `00-bootstrap-fallback.ps1` (detekuje→doporučí→exit).
+- **-WhatIf před -Force** — všechny skripty podporují suchý běh. Vždycky nejdřív `-WhatIf` nebo `-Confirm`.
 - **Firemní stroj** — `safeMode` se automaticky detekuje. Nikdy nic neinstaluje bez potvrzení.
 - **Server / headless** — detekuje se podle OS caption. safeMode = true.
 
@@ -20,7 +20,7 @@
 # Windows PS7 — doporučeno
 irm https://gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/raw/bootstrap.ps1 | iex
 
-# Windows PS5 — fallback (nainstaluje pwsh+git, spawnuje PS7)
+# Windows PS5 — fallback (detekuje, doporučí, neinstaluje)
 powershell -NoProfile -Command "irm https://gist.githubusercontent.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/raw/00-bootstrap-fallback.ps1?v=1 | iex"
 ```
 
@@ -35,23 +35,20 @@ curl -fsSL https://gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/ra
 
 ```
 irm | iex
-  ├─ PS7 ──▶ 00→01→02→10→15→20→30→40→50→60→70
-  └─ PS5 ──▶ 00-bootstrap-fallback → pwsh+git ↗
+  ├─ PS7 ──▶ 00→30→10→20→40→50→60→70
+  └─ PS5 ──▶ 00-bootstrap-fallback → detect→recommend→exit
 ```
 
-| Fáze | Co se děje |
-|---|---|
-| **00. Bootstrap** | gist URL, hand-off |
-| **01. Profile** | Corp/home/server/lab → safeMode |
-| **02. Core check** | PS version, shell, terminal, installer (PS7 loop) |
-| **10. Detect** | Fingerprint, OS, 13 tools, PATH, OneDrive, corporate |
-| **15. Report** | JSON → `~/.dev-env/` — for AI + human |
-| **20. Clone** | git clone / remote fallback |
-| **30. Profile** | Home/work/lab/server identity, GitHub, SSH |
-| **40. Essentials** | 🖥️ wt + pwsh (confirm 5s) |
-| **50. Categories** | 🌐🤖📝🔧📦 recommended + optional |
-| **60. Repair** | PATH duplicates, HOME, OneDrive |
-| **70. Test** | 14 checks → pass/fail → exit code |
+| Fáze | Skript | Co se děje |
+|---|---|---|
+| **00. Core check** | `00-core-check.ps1` | PS7, git, connectivity — exit 1 při chybě (neinstaluje) |
+| **30. Clone** | `30-clone.ps1` | git clone/pull — vždy běží i v dry-run (read-only) |
+| **10. Detect** | `10-detect.ps1` | Fingerprint, OS, 13 tools, PATH, OneDrive, corporate |
+| **20. Report** | `20-report.ps1` | JSON → `~/.dev-env/report-*.json` + `machines.json` |
+| **40. Profile** | `40-profile.ps1` | home/work/lab/server identity, git, GitHub, SSH |
+| **50. Setup** | `50-setup-{profile}.ps1` | Balíčky, složky, git config (ShouldProcess) |
+| **60. Repair** | `60-repair.ps1` | PATH, HOME, OneDrive, SSH (ShouldProcess) |
+| **70. Test** | `70-test.ps1` | 14 kontrol — exit 0 = pass |
 
 ---
 
@@ -74,21 +71,24 @@ irm | iex
 ├── report-*.json           ← poslední report
 ├── config/                 ← lokální přepsání profilu
 └── repo/                   ← git clone repozitáře
-    ├── bootstrap.ps1
+    ├── bootstrap.ps1       ← orchestrátor
     ├── scripts/
-    │   ├── 00-bootstrap-fallback.ps1  ← PS5 fallback
-    │   ├── 40-profile.ps1     ← detekce profilu
-    │   ├── 50-setup-home.ps1  ← instalace pro doma
-    │   ├── 50-setup-lab.ps1   ← VM
-    │   ├── 50-setup-work.ps1  ← firemní
-    │   ├── 60-repair.ps1      ← opravy
-    │   ├── 70-test.ps1        ← validace
-    │   ├── Confirm-Action.ps1 ← potvrzovací dialog (5s timeout)
-    │   └── link-configs.ps1   ← symlinky konfigů
+    │   ├── 00-core-check.ps1        ← PS7, git, connectivity
+    │   ├── 00-bootstrap-fallback.ps1← PS5 fallback
+    │   ├── 10-detect.ps1            ← inventura
+    │   ├── 20-report.ps1            ← report + JSON
+    │   ├── 30-clone.ps1             ← clone/pull
+    │   ├── 40-profile.ps1           ← profil
+    │   ├── 50-setup-home.ps1        ← home instalace
+    │   ├── 50-setup-lab.ps1         ← VM
+    │   ├── 50-setup-work.ps1        ← firemní
+    │   ├── 60-repair.ps1            ← opravy (ShouldProcess)
+    │   ├── 70-test.ps1              ← validace
+    │   ├── Confirm-Action.ps1       ← potvrzovací dialog (10s)
+    │   └── link-configs.ps1         ← symlinky
     ├── profiles/             ← JSON definice profilů
     ├── configs/              ← verzované konfigy
     ├── ai/                   ← pro AI agenty
-    ├── menu/menu.ps1         ← interaktivní menu
     └── docs/                 ← dokumentace
 ```
 
@@ -106,12 +106,16 @@ Doporučená struktura projektů:
 
 | Skript | Spuštění | Co dělá |
 |---|---|---|
+| `scripts/00-core-check.ps1` | `./00-core-check.ps1` | Detekce PS7, git, connectivity |
+| `scripts/10-detect.ps1` | `./10-detect.ps1` | Inventura prostředí |
+| `scripts/20-report.ps1` | `./20-report.ps1` | Zobrazení + JSON |
+| `scripts/30-clone.ps1` | `./30-clone.ps1` | Git clone/pull |
 | `scripts/40-profile.ps1` | `./40-profile.ps1` | Detekce profilu |
-| `scripts/50-setup-home.ps1` | `./50-setup-home.ps1 -WhatIf` | Instalace kategorie (🖥️🌐🤖📝🔧📦) |
-| `scripts/60-repair.ps1` | `./60-repair.ps1 -WhatIf` | Opravy PATH, HOME, OneDrive |
+| `scripts/50-setup-home.ps1` | `./50-setup-home.ps1 -WhatIf` | Instalace (ShouldProcess) |
+| `scripts/60-repair.ps1` | `./60-repair.ps1 -WhatIf` | Opravy (ShouldProcess) |
 | `scripts/70-test.ps1` | `./70-test.ps1` | 14 kontrol |
 | `scripts/link-configs.ps1` | `./link-configs.ps1 -WhatIf` | Symlinky konfigů |
-| `scripts/Confirm-Action.ps1` | dot-source | Interaktivní potvrzení (5s timeout) |
+| `scripts/Confirm-Action.ps1` | dot-source | Interaktivní potvrzení (10s timeout) |
 | `menu/menu.ps1` | `./menu.ps1` | Interaktivní menu |
 
 ---

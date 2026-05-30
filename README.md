@@ -24,10 +24,10 @@
 # Windows (PowerShell 7+) — ostrý run
 irm https://gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/raw/bootstrap.ps1 | iex
 
-# Windows — dry-run (detekce + core + profil + setup náhled, nic se neinstaluje)
+# Windows — dry-run (detekce + náhled, nic se neinstaluje)
 $env:DEV_ENV_WHATIF='1'; irm https://gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/raw/bootstrap.ps1 | iex
 
-# Windows PS5 — fallback (nainstaluje pwsh+git, spawnuje PS7)
+# Windows PS5 — fallback (detekuje, doporučí, neinstaluje)
 powershell -NoProfile -Command "irm https://gist.githubusercontent.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/raw/00-bootstrap-fallback.ps1 | iex"
 ```
 
@@ -39,45 +39,43 @@ curl -fsSL https://gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/ra
 ### Co uvidíš
 
 ```
->>> DETECT / DETEKCE
+╔══════════════════════════════════════════╗
+║  PHASE 00 — CORE CHECK                   ║
+╚══════════════════════════════════════════╝
+00.1 PowerShell version
+  ✅  PowerShell 7.6.2 (Core)
+00.2 Git
+  ✅  Git: git version 2.54.0.windows.1
+00.3 Network connectivity
+  ✅  github.com reachable
+─── CORE CHECK SUMMARY ────────────────────────
+  ✅  All prerequisites OK
 
 ╔══════════════════════════════════════════╗
-║  🔴  NEW                                 ║
-║                                          ║
-║  REPO : https://github.com/doma77git/... ║
-║  RPT  : C:\Users\...\.dev-env\report-... ║
+║  PHASE 30 — REPOSITORY CLONE             ║
 ╚══════════════════════════════════════════╝
+  Repo exists — pulling latest ...
+  ✅  Pull complete
 
->>> CLONE / KLONUJI REPO
-  git clone -b master ... → C:\Users\...\.dev-env\repo
-  Repo: C:\Users\...\.dev-env\repo
+╔══════════════════════════════════════════╗
+║  PHASE 10 — ENVIRONMENT DETECT           ║
+╚══════════════════════════════════════════╝
+  fingerprint: d924..., OS: Windows 11 Pro build 26200, tools: 8/13
 
->>> PROFILE: home (auto-detected)
-  Reason   : no domain, no proxy, no VM
+╔══════════════════════════════════════════╗
+║  PHASE 20 — INVENTORY REPORT             ║
+╚══════════════════════════════════════════╝
+  🟢  SAME
+  REPO : https://github.com/doma77git/dev-env
+  RPT  : C:\Users\...\.dev-env\report-*.json
 
-  ── SYSTEM ──────────────────────────────────
-  OS       : Microsoft Windows 11 Pro (build 26200)
-  Hostname : H11
-  Domain   : WORKGROUP (workgroup)
+╔══════════════════════════════════════════╗
+║  PHASE 40 — PROFILE & IDENTITY           ║
+╚══════════════════════════════════════════╝
   Profile  : 🏠 HOME — personal PC
-  ── USER ────────────────────────────────────
-  Account  : H11\spravce
-  Type     : Local account
-  ── IDENTITIES ──────────────────────────────
-  Git      : doma77 <doma77@outlook.cz> (git-config)
+  Git      : doma77 <doma77@outlook.cz> (saved)
   GitHub   : doma77git (logged in)
-  SSH keys : 1 (ed25519)
-  ── TOOLS ───────────────────────────────────
-  Proxy    : none
-  Package  : winget
-
-  Use / Pouzij:  scripts/50-setup-home.ps1 -WhatIf
-
->>> PHASE 02 — CORE CHECK
-  ✅ PowerShell 7.6.2 — OK
-  ✅ Shell: pwsh 7.6.2
-  ✅ Terminal: wt
-  ✅ Installer: winget
+  SSH keys : 1 (rsa)
 ```
 
 ---
@@ -86,24 +84,21 @@ curl -fsSL https://gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/ra
 
 ```
 irm | iex
-  ├─ PS7? ──ano──▶ 00→01→02→10→15→20→30→40→50→60→70
-  └─ PS5? ──────▶ 00-bootstrap-fallback.ps1 → pwsh+git ↗
+  ├─ PS7 ──▶ 00→30→10→20→40→50→60→70
+  └─ PS5 ──▶ 00-bootstrap-fallback → detect→recommend→exit
 ```
 
-| Fáze | Skript | Stav | Popis |
-|---|---|---|---|
-| **00. Bootstrap** | `bootstrap.ps1` (gist) | ✅ | Entry point, gist URL |
-| **01. Profile** | `bootstrap.ps1` inline | ✅ | Corp/home/server/lab → safeMode |
-| **02. Core Check** | `bootstrap.ps1` inline | ✅ | PS7 loop, shell, terminal, installer |
-| **10. Detect** | `bootstrap.ps1` inline | ✅ | Fingerprint, OS, nástroje, PATH, OneDrive |
-| **15. Report** | → `~/.dev-env/report-*.json` | ✅ | JSON pro AI i člověka |
-| **20. Clone** | git / remote fallback | ✅ | clone/pull nebo raw.githubusercontent.com |
-| **30. Profile** | `scripts/40-profile.ps1` | ✅ | home / work / lab / server identity |
-| **40. Essentials** | `scripts/50-setup-home.ps1` | ✅ | 🖥️ wt + pwsh (core) |
-| **50. Categories** | `scripts/50-setup-home.ps1` | ✅ | 🌐🤖📝🔧📦 |
-| **60. Repair** | `scripts/60-repair.ps1` | ✅ | PATH, HOME, OneDrive, SSH |
-| **70. Test** | `scripts/70-test.ps1` | ✅ | 14 kontrol — exit 0 = pass |
-| **Menu** | `menu/menu.ps1` | ✅ | Interaktivní rozcestník |
+| Fáze | Skript | Popis |
+|---|---|---|
+| **00. Core check** | `scripts/00-core-check.ps1` | PS7, git, connectivity — exit 1 při chybě, nikdy neinstaluje |
+| **30. Clone** | `scripts/30-clone.ps1` | git clone/pull (vždy běží = read-only) |
+| **10. Detect** | `scripts/10-detect.ps1` | Fingerprint, OS, 13 nástrojů, PATH, OneDrive |
+| **20. Report** | `scripts/20-report.ps1` | JSON → `~/.dev-env/report-*.json` + `machines.json` |
+| **40. Profile** | `scripts/40-profile.ps1` | home / work / lab / server, git identity, GitHub, SSH |
+| **50. Setup** | `scripts/50-setup-{profile}.ps1` | Balíčky, složky, git config, autocrlf (ShouldProcess) |
+| **60. Repair** | `scripts/60-repair.ps1` | PATH, HOME, OneDrive, SSH (ShouldProcess) |
+| **70. Test** | `scripts/70-test.ps1` | 14 kontrol — exit 0 = pass |
+| **Menu** | `menu/menu.ps1` | Interaktivní rozcestník |
 
 ---
 
@@ -114,9 +109,9 @@ irm | iex
 | 🔒 **Nikdy necommituj `~/.ssh/`** | SSH klíče = tvé digitální otisky. Únik = kompromitace všech serverů. |
 | 🔒 **Nikdy necommituj `machines.json`** | Obsahuje hostname, username, doménu, cesty — recon sen pro útočníka. Je to lokální historie. |
 | 🟡 **Bez gitu = bez clone** | Bootstrap detekci zvládne bez gitu. Ale repo se neklonuje → `scripts/` nebudou dostupné. Nainstaluj git a spusť bootstrap znovu. |
-| 🟡 **PS5 = fallback** | Phase 02 detekuje PS5 a pokusí se nainstalovat PS7 (winget → direct MSI). Pokud selže, spusť `00-bootstrap-fallback.ps1`. |
-| 🟡 **Firemní stroj = omezení** | GPO může blokovat `irm`, `iex`, `winget`. Bootstrap to detekuje — použij `work` profil. |
-| 🔵 **OneDrive přesměrování** | Bootstrap detekuje, `repair.ps1` varuje. Desktop v OneDrive = každý screenshot se syncuje do cloudu. |
+| 🟡 **PS5 = fallback** | `00-bootstrap-fallback.ps1` detekuje → doporučí → skončí. Žádná auto‑instalace. |
+| 🟡 **Firemní stroj = omezení** | GPO může blokovat `irm`, `iex`, `winget`. Bootstrap to detekuje — použi `work` profil. |
+| 🔵 **OneDrive přesměrování** | Bootstrap detekuje, `60-repair.ps1` varuje. Desktop v OneDrive = každý screenshot se syncuje do cloudu. |
 
 ---
 
@@ -134,15 +129,21 @@ irm | iex
    ├── config/
    │   └── profile.json          ← uložený profil (home/work/lab)
    └── repo/                     ← git clone repa (sem chodíš pro scripts/)
+       ├── bootstrap.ps1
        ├── scripts/
-       │   ├── 00-bootstrap-fallback.ps1  ← PS5 fallback
-       │   ├── 40-profile.ps1
-       │   ├── 50-setup-home.ps1
-       │   ├── 50-setup-lab.ps1
-       │   ├── 50-setup-work.ps1
-       │   ├── 60-repair.ps1
-       │   ├── 70-test.ps1
-       │   └── link-configs.ps1
+       │   ├── 00-core-check.ps1        ← detekce závislostí (žádná instalace)
+       │   ├── 00-bootstrap-fallback.ps1← PS5 fallback
+       │   ├── 10-detect.ps1            ← inventura
+       │   ├── 20-report.ps1            ← report + JSON
+       │   ├── 30-clone.ps1             ← clone/pull
+       │   ├── 40-profile.ps1           ← profil + identity
+       │   ├── 50-setup-home.ps1        ← home instalace
+       │   ├── 50-setup-lab.ps1         ← VM instalace
+       │   ├── 50-setup-work.ps1        ← firemní instalace
+       │   ├── 60-repair.ps1            ← opravy
+       │   ├── 70-test.ps1              ← validace
+       │   ├── Confirm-Action.ps1       ← potvrzovací dialog
+       │   └── link-configs.ps1         ← symlinky
        ├── menu/menu.ps1
        ├── ai/ docs/ profiles/
        └── ...
@@ -153,7 +154,7 @@ irm | iex
 ## 🧪 První kroky po instalaci
 
 ```powershell
-# 1. Dry-run — detekce + profil + setup náhled (nic se neinstaluje)
+# 1. Dry-run — detekce + profil + náhled (nic se neinstaluje)
 $env:DEV_ENV_WHATIF='1'
 irm https://gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/raw/bootstrap.ps1 | iex
 
@@ -167,11 +168,12 @@ cd ~/.dev-env/repo
 # 4. Zkontroluj profil
 ./scripts/40-profile.ps1
 
-# 5. Suchý běh instalace — uvidíš, co se nainstaluje
+# 5. Suchý běh instalace
 ./scripts/50-setup-home.ps1 -WhatIf
 
-# 6. Instaluj (až budeš připraven)
-./scripts/50-setup-home.ps1 -Force
+# 6. Instaluj (s potvrzováním každého kroku -Confirm nebo vše najednou -Force)
+./scripts/50-setup-home.ps1 -Confirm   # každý krok se ptá
+./scripts/50-setup-home.ps1 -Force     # vše najednou
 
 # 7. Oprav problémy
 ./scripts/60-repair.ps1 -WhatIf
@@ -204,7 +206,7 @@ cd ~/.dev-env/repo
 
 | Soubor | Pro koho | Účel |
 |---|---|---|
-| `bootstrap.ps1` / `.sh` | 🔧 Spustit | Entry point — detect + clone + profile |
+| `bootstrap.ps1` / `.sh` | 🔧 Spustit | Entry point — orchestrátor (00→30→10→20→40→50→60→70) |
 | `manifest.json` | ⚙️ Stroj | Autoritativní data: verze, timestamp, seznam souborů |
 | `ai/context.md` | 🤖 AI | Kompletní kontext: lifecycle, rozhodování, prompty, OS logika |
 | `ai/schema.json` | 🤖 AI | JSON Schema reportu |
@@ -213,13 +215,16 @@ cd ~/.dev-env/repo
 | `docs/workflows.md` | 👤 Člověk | Krok za krokem |
 | `index.html` | 👤 Offline | Lokální landing (otevři v prohlížeči) |
 | `profiles/*.json` | ⚙️ Stroj | Definice home / work / lab |
-| `scripts/00-bootstrap-fallback.ps1` | 🔧 Spustit | PS5 fallback — nainstaluje pwsh+wt+git |
-| `scripts/40-profile.ps1`  | 🔧 Spustit | Detekce profilu home/work/lab |
+| `scripts/00-core-check.ps1` | 🔧 Spustit | Detekce PS7, git, connectivity |
+| `scripts/10-detect.ps1` | 🔧 Spustit | Inventura prostředí |
+| `scripts/20-report.ps1` | 🔧 Spustit | Zobrazení + uložení JSON |
+| `scripts/30-clone.ps1` | 🔧 Spustit | Git clone/pull |
+| `scripts/40-profile.ps1` | 🔧 Spustit | Detekce profilu home/work/lab |
 | `scripts/50-setup-home.ps1` | 🔧 Spustit | Home PC — winget, dirs, git, autocrlf |
 | `scripts/50-setup-work.ps1` | 🔧 Spustit | Corporate PC — proxy, VPN, manual |
-| `scripts/50-setup-lab.ps1`  | 🔧 Spustit | Lab VM — WSL, scoop, experimental |
-| `scripts/60-repair.ps1`     | 🔧 Spustit | Opravy PATH, HOME, OneDrive, SSH |
-| `scripts/70-test.ps1`       | 🔧 Spustit | 14 kontrol, exit 0 = pass |
+| `scripts/50-setup-lab.ps1` | 🔧 Spustit | Lab VM — WSL, scoop, experimental |
+| `scripts/60-repair.ps1` | 🔧 Spustit | Opravy PATH, HOME, OneDrive, SSH |
+| `scripts/70-test.ps1` | 🔧 Spustit | 14 kontrol, exit 0 = pass |
 | `scripts/link-configs.ps1` | 🔧 Spustit | Symlink konfigů z repa |
 | `configs/*` | 🔧 Spustit | Sdílené konfigy (git, pwsh) |
 | `menu/menu.ps1` | 🔧 Spustit | Interaktivní menu |
@@ -254,32 +259,24 @@ cd ~/.dev-env/repo
 
 | Stav | Co |
 |---|---|
-| ✅ | Bootstrap — detect, fingerprint, report, clone, WhatIf chain |
-| ✅ | Profily — base, home, work, lab + auto-detekce s reasoning |
-| ✅ | Profil výstup — 3 sekce: SYSTEM / USER / IDENTITIES |
-| ✅ | Identita — auto-detekce z git configu (ne placeholder) |
+| ✅ | Bootstrap orchestrátor — 00→30→10→20→40→50→60→70 |
+| ✅ | 00-core-check.ps1 — PS7, git, connectivity (žádná instalace) |
+| ✅ | 30-clone.ps1 — vždy běží i v dry-run (read-only) |
+| ✅ | 10-detect.ps1 — inventura (oddělená z bootstrap.ps1) |
+| ✅ | 20-report.ps1 — zobrazení + JSON (oddělená) |
+| ✅ | Profily — base, home, work, lab + auto-detekce |
+| ✅ | Identita — auto-detekce z git configu (uložena v identity.json) |
 | ✅ | GitHub + SSH detekce v profilu |
-| ✅ | Pipeline v4 — 00→01→02→10→15→20→30→40→50→60→70 |
-| ✅ | Phase 01 — inline profile detect (corp/home/server/lab) |
-| ✅ | Phase 02 — core check loop (PS7, shell, terminal, installer) |
 | ✅ | safeMode — corporate/server = no auto-install |
-| ✅ | Categories — 🖥️🌐🤖📝🔧📦 (PATH-first detection) |
-| ✅ | `scripts/00-bootstrap-fallback.ps1` — PS5 fallback |
-| ✅ | `scripts/50-setup-home.ps1` — kategorie, winget, složky, git |
-| ✅ | `scripts/50-setup-work.ps1` — firemní instalace |
-| ✅ | `scripts/50-setup-lab.ps1` — testovací VM |
-| ✅ | `scripts/60-repair.ps1` — PATH, HOME, OneDrive, SSH |
-| ✅ | `scripts/70-test.ps1` — 14 kontrol |
-| ✅ | `scripts/Confirm-Action.ps1` — 5s timeout, headless detect |
-| ✅ | `profiles/server.json` — headless profil |
-| ✅ | Menu — interaktivní rozcestník |
-| ✅ | AI context — lifecycle, prompty, OS logika |
-| ✅ | Deep merge v `profile.ps1` — rekurzivní merge |
-| ✅ | Git branch `master` — fixnuto clone/pull/tracking |
+| ✅ | ShouldProcess — -WhatIf, -Confirm na setup/repair |
+| ✅ | `scripts/00-bootstrap-fallback.ps1` — PS5 fallback, bez instalace |
+| ✅ | `scripts/Confirm-Action.ps1` — 10s timeout, headless detect |
+| ✅ | Deep merge v `40-profile.ps1` — rekurzivní merge profilů |
 | ✅ | Porovnávač tools — robustní, žádné falešné "Gone" |
-| 🟠 | **Setup podle `tools.required/recommended/optional`** — neinstalovat všechno |
 | 🟠 | Linux/WSL `bootstrap.sh` — parity s `.ps1` verzí |
-| 🟠 | `setup-home.ps1` config — identity, packages výběr, interaktivní režim |
+| 🟠 | Interaktivní režim v setup-*.ps1 (výběr packages) |
+| 🟠 | SSH keygen prompt v setupu (když chybí klíče) |
+| 🟠 | Menu — přidat volby pro nové scripty |
 
 ---
 

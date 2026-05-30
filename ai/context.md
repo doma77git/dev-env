@@ -17,6 +17,7 @@ One gist, one repo, all machines. Detects, reports, repairs, tests.
 | `profile` | `home` / `work` / `lab` — auto-detected machine context |
 | `machines.json` | Append-only history — LOCAL, never synced, never committed |
 | `WhatIf` | PowerShell dry-run convention — show what WOULD change |
+| `ShouldProcess` | PowerShell advanced function — enables -WhatIf, -Confirm on mutations |
 
 ---
 
@@ -30,21 +31,23 @@ USER runs:
   curl -fsSL <gist>/bootstrap.sh | bash   (Linux/WSL)
 
 WHAT HAPPENS:
-  bootstrap.*
-    → 1. DETECT (self-contained, no dependencies)
-    → 2. REPORT (JSON → stdout + ~/.dev-env/)
-    → 3. CLONE (git clone -b master → ~/.dev-env/repo/)
-    → 4. PROFILE (scripts/40-profile.ps1 → home|work|lab)
-         → 3-sekční výstup: SYSTEM / USER / IDENTITIES
-         → Identita: saved > git-config > placeholder
-    → 5. SETUP DRY-RUN (když -WhatIf: auto-chain do 50-setup-<profile>.ps1 -WhatIf)
-
-  AFTER CLONE — user can run:
-    → scripts/50-setup-<profile>.ps1 [-WhatIf|-Force]
-    → scripts/60-repair.ps1          [-WhatIf|-Force]
-    → scripts/70-test.ps1            (exit 0=pass, 1=fail)
-    → scripts/link-configs.ps1    [-WhatIf|-Force]
-    → menu/menu.ps1               (interactive)
+  bootstrap.*  → orchestrator volá fáze:
+    → 00. CORE CHECK (scripts/00-core-check.ps1)
+         PS7, git, connectivity → exit 1 při chybě (neinstaluje)
+    → 30. CLONE (scripts/30-clone.ps1)
+         git clone/pull → ~/.dev-env/repo/ (read-only, vždy běží)
+    → 10. DETECT (scripts/10-detect.ps1)
+         fingerprint, OS, 13 tools, PATH, OneDrive, corporate
+    → 20. REPORT (scripts/20-report.ps1)
+         JSON → stdout + ~/.dev-env/report-*.json + machines.json
+    → 40. PROFILE (scripts/40-profile.ps1)
+         home|work|lab|server, git identity, GitHub, SSH
+    → 50. SETUP (scripts/50-setup-{profile}.ps1, ShouldProcess)
+         dry-run + confirm → instalace
+    → 60. REPAIR (scripts/60-repair.ps1, ShouldProcess)
+         PATH, HOME, OneDrive, SSH
+    → 70. TEST (scripts/70-test.ps1)
+         14 checks → exit 0=pass, 1=fail
 ```
 
 ---
@@ -56,37 +59,46 @@ USER runs: irm <gist> | iex  (nebo s $env:DEV_ENV_WHATIF='1')
   │
   ├─ $env:DEV_ENV_WHATIF='1'?
   │   → >>> DRY-RUN MODE
-  │   → detect proběhne normálně (report se uloží)
-  │   → profile běží s -WhatIf (neukládá se)
-  │   → auto-chain: 50-setup-<profile>.ps1 -WhatIf
+  │   → clone proběhne (read-only)
+  │   → detect/report uloží JSON
+  │   → profile s -WhatIf (neukládá se)
+  │   → setup/repair dry-run + confirm timeout → skip
   │
-  ├─ ~/.dev-env/ DOESN'T EXIST?
-  │   → status: 🔴 new
-  │   → full detect
-  │   → clone repo (git clone -b master)
-  │   → detect profile
+  ├─ Phase 00 — Core check:
+  │   PS7+? → continue
+  │   PS5?  → "Install manually" → exit 1
+  │   git?  → continue
+  │   no git → "Install manually" → exit 1
+  │   ping github.com → OK/warning
   │
-  ├─ ~/.dev-env/ EXISTS?
-  │   ├─ fingerprint MATCH?
-  │   │   ├─ build CHANGED?   → 🟠 os-changed (reinstall/upgrade)
-  │   │   ├─ tools CHANGED?   → 🟡 tools-changed (robustní porovnávač)
-  │   │   └─ NOTHING CHANGED? → 🟢 same
-  │   │
-  │   └─ fingerprint NO MATCH?
-  │       → 🔴 new (different machine/user)
+  ├─ Phase 30 — Clone:
+  │   repo/.git exists → git pull → checkout HEAD -- scripts/
+  │   broken repo      → Remove-Item scripts/ + checkout
+  │   no repo          → git clone -b master
   │
-  ├─ CLONE — repo handling:
-  │   ├─ repo/ + .git existuje → git fetch + checkout master + pull
-  │   ├─ repo/ bez .git        → Broken repo — smaže a git clone -b master
-  │   └─ repo/ neexistuje      → git clone -b master
+  ├─ Phase 10 — Detect:
+  │   fingerprint, OS, tools, PATH, OneDrive, corporate
+  │   Compare with previous (machines.json):
+  │   → new / same / os-changed / tools-changed
   │
-  └─ PROFILE (scripts/40-profile.ps1):
-      ├─ domain-joined ≠ WORKGROUP          → 🏢 work
-      ├─ manufacturer = VMware|VirtualBox   → 🧪 lab
-      ├─ proxy present, no domain           → 🏢 work (VPN?)
-      └─ otherwise                          → 🏠 home
-      └─ user override: -Set home|work|lab
-      └─ IDENTITY: saved (identity.json) > git-config > profile placeholder
+  ├─ Phase 20 — Report:
+  │   Display status → save JSON
+  │
+  ├─ Phase 40 — Profile:
+  │   saved > domain > OS > manufacturer > proxy > home
+  │   Git identity: saved > git-config > placeholder
+  │
+  ├─ Phase 50 — Setup (ShouldProcess):
+  │   -WhatIf → dry-run
+  │   no switch → dry-run + confirm 10s timeout
+  │   -Force → apply all (CI/CD)
+  │   -Confirm → ask per operation
+  │
+  ├─ Phase 60 — Repair (ShouldProcess):
+  │   Same as 50: -WhatIf | confirm | -Force | -Confirm
+  │
+  └─ Phase 70 — Test:
+      14 checks → pass/fail → exit code
 ```
 
 ---
@@ -100,29 +112,28 @@ $env:DEV_ENV_WHATIF='1'
 irm https://gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/raw/bootstrap.ps1 | iex
 
 # 2. Ostrý run
-Remove-Item Env:\DEV_ENV_WHATIF -ErrorAction SilentlyContinue
 irm https://gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/raw/bootstrap.ps1 | iex
 
 # 3. Setup
 cd ~/.dev-env/repo
 ./scripts/50-setup-home.ps1 -WhatIf    (review)
 ./scripts/50-setup-home.ps1 -Force     (apply)
-./scripts/repair.ps1 -Force
-./scripts/test.ps1
+./scripts/60-repair.ps1 -Force
+./scripts/70-test.ps1
 ```
 
 ### When user says: "check my environment" / "zkontroluj prostředí"
 ```
   irm <gist> | iex
-  cd ~/.dev-env/repo && ./scripts/test.ps1
+  cd ~/.dev-env/repo && ./scripts/70-test.ps1
 ```
 
 ### When user says: "something is broken" / "něco nefunguje"
 ```
   cd ~/.dev-env/repo
-  ./scripts/repair.ps1 -WhatIf   (see what's wrong)
-  ./scripts/repair.ps1 -Force    (fix it)
-  ./scripts/test.ps1             (verify)
+  ./scripts/60-repair.ps1 -WhatIf   (see what's wrong)
+  ./scripts/60-repair.ps1 -Force    (fix it)
+  ./scripts/70-test.ps1             (verify)
 ```
 
 ### When user says: "I reinstalled Windows" / "přeinstaloval jsem"
@@ -131,18 +142,18 @@ cd ~/.dev-env/repo
   # Will show 🟠 os-changed
   cd ~/.dev-env/repo
   ./scripts/50-setup-home.ps1 -Force
-  ./scripts/repair.ps1 -Force
+  ./scripts/60-repair.ps1 -Force
   ./scripts/link-configs.ps1 -Force
-  ./scripts/test.ps1
+  ./scripts/70-test.ps1
 ```
 
 ### When user says: "I'm at work" / "jsem v práci"
 ```
   irm <gist> | iex
   cd ~/.dev-env/repo
-  ./scripts/profile.ps1 -Set work
-  # Review restrictions — no winget, proxy required
-  ./scripts/test.ps1
+  ./scripts/40-profile.ps1 -Set work
+  ./scripts/50-setup-work.ps1 -WhatIf
+  ./scripts/70-test.ps1
 ```
 
 ---
@@ -153,7 +164,7 @@ Report JSON (from `~/.dev-env/report-*.json` or stdout):
 
 ```json
 {
-  "status": "new|same|os-changed|tools-changed",  ← KEY FIELD
+  "status": "new|same|os-changed|tools-changed",
   "fingerprint": "sha256...",
   "hostname": "...", "username": "...", "domain": "...",
   "os": { "caption": "Windows 11 Pro", "build": "26100", ... },
@@ -169,7 +180,7 @@ Report JSON (from `~/.dev-env/report-*.json` or stdout):
 | Field | Red flag if |
 |---|---|
 | `status: "os-changed"` | Reinstall detected → suggest full setup |
-| `path.errors: [...]` | PATH issues → suggest repair.ps1 |
+| `path.errors: [...]` | PATH issues → suggest repair |
 | `onedrive.redirects.Desktop` | OneDrive redirect → suggest repair |
 | `corporate.domainJoined: true` | Corporate machine → suggest work profile |
 | `tools.git: null` | No git → can't clone repo, suggest install first |
@@ -186,28 +197,24 @@ Report JSON (from `~/.dev-env/report-*.json` or stdout):
 │                                                         │
 │  1. BOOTSTRAP                                           │
 │     User: irm <gist> | iex                              │
-│     AI: "Here's what I found on your machine..."        │
-│     → detect → report → clone → profile                 │
+│     → core check → clone → detect → report → profile    │
 │                                                         │
 │  2. SETUP                                               │
-│     User: 50-setup-<profile>.ps1 -Force                    │
-│     AI: "I'll install these packages, create folders..."│
-│     → winget/brew/apt → dirs → symlinks → git identity  │
+│     User: 50-setup-<profile>.ps1 -Force                 │
+│     → winget → dirs → symlinks → git identity           │
+│     → uses ShouldProcess (-WhatIf, -Confirm)             │
 │                                                         │
 │  3. REPAIR                                              │
-│     User: repair.ps1 -Force                             │
-│     AI: "Fixing: HOME, PATH duplicates, OneDrive..."    │
-│     → setx HOME → dedupe PATH → unlink OneDrive         │
+│     User: 60-repair.ps1 -Force                          │
+│     → PATH dedup → HOME → OneDrive → SSH                │
 │                                                         │
 │  4. TEST                                                │
-│     User: test.ps1                                      │
-│     AI: "12/14 pass. Issues: HOME not set, OneDrive..." │
-│     → ✅/❌ per check → exit code 0 or 1                │
+│     User: 70-test.ps1                                   │
+│     → 14 checks → ✅/❌ → exit code 0 or 1              │
 │                                                         │
 │  5. MAINTAIN                                            │
 │     User: menu.ps1 or irm <gist> | iex                  │
-│     AI: "Nothing changed 🟢" or "New: docker 🟡"        │
-│     → periodic check → pull repo → re-test              │
+│     → pull repo → re-test                               │
 │                                                         │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -222,7 +229,7 @@ WHEN USER SAYS:                     LOOK AT:
 "What is this project?"          → manifest.json, README.md
 "How does it work?"              → docs/architecture.md
 "What do I do now?"              → docs/workflows.md, ai/context.md (this file)
-"I need to understand the code"  → bootstrap.ps1 (detect), scripts/*.ps1
+"I need to understand the code"  → bootstrap.ps1, scripts/*.ps1
 "What's the data format?"        → ai/schema.json
 "Which profile am I?"            → profiles/home.json|work.json|lab.json
 "Check my machine"               → ~/.dev-env/report-*.json
@@ -287,10 +294,13 @@ What should I fix?
 3. **Detect before suggesting** — ask user to run bootstrap first if no report available
 4. **Profile matters** — home vs work have different package managers and restrictions
 5. **Git is optional for detect** — bootstrap works without it; suggest install for full features
-6. **Exit code** from test.ps1: 0 = all pass, 1 = some fail — use this for CI
+6. **Exit code** from 70-test.ps1: 0 = all pass, 1 = some fail — use this for CI
 7. **machines.json grows forever** — append-only; suggest truncation after 100+ entries
-8. **Identita není placeholder** — profile.ps1 auto-detekuje z git configu; `setup-home.ps1 -Force` uloží do `identity.json`
+8. **Identita není placeholder** — 40-profile.ps1 auto-detekuje z git configu; `50-setup-home.ps1 -Force` uloží do `identity.json`
 9. **3-sekční profil** — SYSTEM (OS/domain/profile), USER (account/type), IDENTITIES (git/github/ssh)
+10. **Clone vždy běží** — i v dry-run režimu, je to read-only
+11. **ShouldProcess** — setup/repair podporují -WhatIf, -Confirm, -Force
+12. **PS5 fallback neinstaluje** — pouze detect→recommend→exit
 
 ---
 
@@ -298,11 +308,10 @@ What should I fix?
 
 | Status | Item |
 |---|---|
-| 🟠 | **Setup podle `tools.required/recommended/optional`** — neinstalovat všechno, respektovat profil |
-| 🟠 | Linux/WSL `bootstrap.sh` — parity s `.ps1` verzí (WhatIf, identity detection, porovnávač) |
-| 🟠 | `setup-home.ps1` — interaktivní režim (výběr packages, identity prompt) |
+| 🟠 | Linux/WSL `bootstrap.sh` — parity s `.ps1` (WhatIf, identity, porovnávač) |
+| 🟠 | Interaktivní režim v setup-home.ps1 (výběr packages) |
 | 🟠 | SSH keygen prompt v setupu (když chybí klíče) |
-| 🟠 | `menu/menu.ps1` — aktualizace na nové scripty |
+| 🟠 | Menu — aktualizace na nové scripty |
 
 ---
 
@@ -337,7 +346,7 @@ Do THIS in order:
    - "new" → "Spusť: cd ~/.dev-env/repo && ./scripts/50-setup-home.ps1 -WhatIf"
    - "same" → "Vše v pořádku. Můžeš spustit: ./menu/menu.ps1"
    - "os-changed" → "Reinstal detekován. Spusť: ./scripts/50-setup-home.ps1 -Force"
-   - "tools-changed" → "Nová verze nástrojů. Spusť: ./scripts/test.ps1"
+   - "tools-changed" → "Nová verze nástrojů. Spusť: ./scripts/70-test.ps1"
 
 RULES:
 - Always CZ+EN bilingual in code references
@@ -402,7 +411,7 @@ Response template:
 | 5 | **Corporate machine = different rules** | No winget, proxy required, VPN may be needed |
 | 6 | **`machines.json` is append-only** | Don't suggest editing it — suggest deleting if corrupt |
 | 7 | **Report JSON is the source of truth** | Always read it before suggesting actions |
-| 8 | **PowerShell 7+ required** | `profile.ps1` uses `??` operator — won't work on PS 5.1 |
+| 8 | **PowerShell 7+ required** | `40-profile.ps1` uses `??` operator — won't work on PS 5.1 |
 
 ---
 
@@ -425,7 +434,7 @@ How to keep in sync:
 ```
 Bootstrap detects: domainJoined=true, proxy present, no winget
 → Profile: work
-→ setup-work.ps1 (TODO) will handle:
+→ 50-setup-work.ps1 handles:
   - Manual installation instructions (no winget)
   - Proxy configuration for git, npm, pip
   - ExecutionPolicy workarounds
@@ -437,8 +446,8 @@ Bootstrap detects: domainJoined=true, proxy present, no winget
 Bootstrap detects: fingerprint same, build changed, installDate new
 → Status: os-changed
 → User should run:
-  1. setup-home.ps1 -Force (reinstall all packages)
-  2. repair.ps1 -Force (fix PATH, HOME)
+  1. 50-setup-home.ps1 -Force (reinstall all packages)
+  2. 60-repair.ps1 -Force (fix PATH, HOME)
   3. link-configs.ps1 -Force (restore config symlinks)
-  4. test.ps1 (verify everything)
+  4. 70-test.ps1 (verify everything)
 ```

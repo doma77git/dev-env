@@ -8,10 +8,10 @@
 
 ```
 ┌─────────────────────────────────────────┐
-│  GIST (3 files)                         │  ← Entry point
-│  bootstrap.ps1 (PS7)                    │
-│  00-bootstrap-fallback.ps1 (PS5)        │
-│  bootstrap.sh (Linux/WSL)               │
+│  GIST (3 files)                          │  ← Entry point
+│  bootstrap.ps1 (PS7 — orchestrátor)      │
+│  00-bootstrap-fallback.ps1 (PS5)         │
+│  bootstrap.sh (Linux/WSL)                │
 ├─────────────────────────────────────────┤
 │  REPO (dev-env)                          │  ← Source of truth
 │  Profily, skripty, konfigy, AI, docs.   │
@@ -29,56 +29,45 @@
 ```
 bootstrap.ps1 (GIST)
   │
-  ├─ 00. BOOTSTRAP ──────────────────────
-  │   gist URL → hand-off
+  ├─ 00. CORE CHECK ────────────────────
+  │   scripts/00-core-check.ps1
+  │   PS7, git, connectivity
+  │   → exit 1 při chybě (nikdy neinstaluje)
   │
-  ├─ 01. PROFILE (inline cheap) ──────────
-  │   domain, OS caption, manufacturer
-  │   → 🏠 home / 🏢 work / 🖳 server / 🧪 lab
-  │   → safeMode (corp/server = no auto-install)
+  ├─ 30. CLONE ─────────────────────────
+  │   scripts/30-clone.ps1 (nebo inline)
+  │   git clone/pull → ~/.dev-env/repo/
+  │   VŽDY běží (read-only, ne mutace)
   │
-  ├─ 02. CORE CHECK ──────────────────────
-  │   PS version → PS5? loop try install
-  │   (winget → direct MSI → spawn pwsh)
-  │   Shell, terminal (wt), installer
-  │
-  ├─ 10. DETECT ─────────────────────────
+  ├─ 10. DETECT ────────────────────────
+  │   scripts/10-detect.ps1
   │   fingerprint, OS, 13 tools, PATH,
   │   OneDrive, corporate signals
-  │   → JSON report
   │
-  ├─ 15. REPORT ─────────────────────────
+  ├─ 20. REPORT ────────────────────────
+  │   scripts/20-report.ps1
   │   status (🔴new / 🟢same / 🟠os / 🟡tools)
   │   → ~/.dev-env/report-*.json
   │   → ~/.dev-env/machines.json (append)
   │
-  ├─ 20. CLONE ──────────────────────────
-  │   git exists? → clone/pull → ~/.dev-env/repo/
-  │   git missing? → REMOTE FALLBACK
-  │     (raw.githubusercontent.com)
-  │
-  ├─ 30. PROFILE IDENTITY ───────────────
+  ├─ 40. PROFILE ───────────────────────
   │   scripts/40-profile.ps1
   │   git identity, GitHub, SSH
   │   4.1 SYSTEM · 4.2 USER · 4.3 IDENTITIES · 4.4 TOOLS
   │   → ~/.dev-env/config/profile.json
   │
-  ├─ 40. ESSENTIALS ─────────────────────
-  │   🖥️ TERMINAL: wt + pwsh
-  │   HOME: dry-run → confirm (5s) → install
-  │   CORP: report only, skip
+  ├─ 50. SETUP ─────────────────────────
+  │   scripts/50-setup-{profile}.ps1
+  │   [CmdletBinding(SupportsShouldProcess)]
+  │   -WhatIf = suchý běh, -Confirm = ptát se,
+  │   -Force = vše najednou
   │
-  ├─ 50. CATEGORIES ─────────────────────
-  │   🌐 BROWSER · 🤖 AI · 📝 EDITORS · 
-  │   🔧 PROJECT · 📦 UTILS
-  │   HOME: recommended + optional → confirm
-  │   CORP: report only
-  │
-  ├─ 60. REPAIR ─────────────────────────
-  │   PATH duplicates, HOME, OneDrive, SSH
+  ├─ 60. REPAIR ────────────────────────
   │   scripts/60-repair.ps1
+  │   PATH, HOME, OneDrive, SSH
+  │   [CmdletBinding(SupportsShouldProcess)]
   │
-  └─ 70. TEST ──────────────────────────
+  └─ 70. TEST ─────────────────────────
       scripts/70-test.ps1
       14 checks → pass/fail → exit code
       "testResult" in pipeline JSON
@@ -91,13 +80,25 @@ base.json  ←  všichni sdílí
   ├── home.json    ← osobní PC (volný režim, plná práva)
   ├── work.json    ← firemní PC (proxy, safeMode, omezení)
   ├── lab.json     ← testovací VM (WSL, scoop, experimenty)
-  └── server.json  ← headless server (safeMode, bez GUI, nový!)
+  └── server.json  ← headless server (safeMode, bez GUI)
 ```
 
 ## Rozhodovací logika / Decision tree
 
 ```
-Phase 01 — Profile detect priorita:
+Phase 00 — Core check:
+  PS7+?  → continue
+  PS5?   → "Install PS7 manually: winget install Microsoft.PowerShell" → exit 1
+  git?   → continue
+  no git → "Install git manually: winget install Git.Git" → exit 1
+  github.com ping → OK/warning
+
+Phase 30 — Clone:
+  repo/.git exists → git pull
+  broken repo      → Remove-Item scripts/ + git checkout HEAD -- scripts/
+  no repo          → git clone -b master
+
+Phase 40 — Profile detect priorita:
   1. saved profile (--Set)
   2. DOMAIN ≠ WORKGROUP              → 🏢 work (safeMode=true)
   3. OS caption = "Server"            → 🖳 server (safeMode=true)
@@ -106,32 +107,43 @@ Phase 01 — Profile detect priorita:
   6. proxy detected                  → 🏢 work (safeMode=true)
   7. else                            → 🏠 home
 
-Phase 02 — Core check:
-  PS7?  → continue
-  PS5?  → safeMode? → skip → "install manually"
-        → home? → try winget → try MSI → spawn pwsh window
+Phase 50-60 — ShouldProcess:
+  No switch     → dry-run + confirm dialog (10s timeout)
+  -WhatIf       → suchý běh (jen náhled)
+  -Confirm      → ptát se u každé změny
+  -Force        → vše najednou (CI/CD)
 
-Phase 30 — Identity priority:
+Identity priority (phase 40):
   saved ~/.dev-env/config/identity.json  → saved
   git config --global user.email         → git-config
   profile default (placeholder)         → placeholder
 ```
 
+## Edge cases
+
+| Situace | Reakce |
+|---|---|
+| PS5.1 | exit 1 + "winget install Microsoft.PowerShell" |
+| Offline | warning, pokračuje (clone přeskočí) |
+| Git missing | exit 1 + "winget install Git.Git" |
+| Broken repo | Remove-Item + git clone |
+| Headless (CI) | Confirm-Action timeout → skip |
+| Corrupted machines.json | try/catch → prázdná historie |
+| Symlink bez admin | fallback Copy-Item |
+| OneDrive redirect | repair varuje, neopravuje automaticky |
+
 ## TODO / Roadmap
 
 | Stav | Položka |
 |---|---|
-| ✅ | Phase numbering 00–70 (step 10) |
-| ✅ | 50-setup-home categories: 🖥️🌐🤖📝🔧📦 |
-| ✅ | 50-setup-work — firemní instalace |
-| ✅ | 50-setup-lab — testovací VM |
-| ✅ | Deep merge v 40-profile.ps1 |
-| ✅ | 00-bootstrap-fallback.ps1 — PS5 fallback |
-| ✅ | Confirm-Action + headless detection |
-| ✅ | Remote fallback (raw.githubusercontent.com) |
-| ✅ | Server profile detection |
-| 🟠 | Split 50-setup-home into 40-essentials + 50-categories |
-| 🟠 | Pipeline JSON completed tracking for 01,02,15 |
+| ✅ | Fáze 00→30→10→20→40→50→60→70 |
+| ✅ | ShouldProcess na setup/repair |
+| ✅ | Clone vždy běží (read-only, i v dry-run) |
+| ✅ | 00-core-check.ps1 — žádná instalace |
+| ✅ | 00-bootstrap-fallback.ps1 — detect→recommend→exit |
+| ✅ | Confirm-Action 10s timeout + headless |
+| 🟠 | Linux/WSL bootstrap.sh — parity s .ps1 |
+| 🟠 | Interaktivní režim v setup (výběr packages) |
 | 🟠 | Server setup script (scripts/50-setup-server.ps1) |
 
 ---
