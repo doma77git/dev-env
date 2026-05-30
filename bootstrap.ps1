@@ -1,8 +1,9 @@
 #!/usr/bin/env pwsh
 # === bootstrap.ps1 ============================================
 # URL:    https://gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5
-# ROLE:   Pipeline orchestrator — calls phase scripts 00→70
-#         Orchestrátor pipeline — volá fáze 00→70
+# ROLE:   Pipeline orchestrator — calls phase scripts in order:
+#         00 (core check) → 30 (clone) → 10 (detect) → 20 (report)
+#         → 40 (profile) → 50 (setup) → 60 (repair) → 70 (test)
 # RUN:    irm <url> | iex                                      (Windows)
 #         $env:DEV_ENV_WHATIF='1'; irm <url> | iex              (dry-run)
 #         ./bootstrap.ps1 -WhatIf                               (dry-run local)
@@ -21,18 +22,21 @@ if ($WhatIf) {
 }
 
 $ErrorActionPreference = "Continue"
-$ScriptsDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+
+# When running via irm | iex, $MyInvocation.MyCommand.Path is null
+# Use repo clone as fallback until clone phase updates it
+$ScriptsDir = try { Split-Path -Parent $MyInvocation.MyCommand.Path -ErrorAction Stop } catch { $null }
 if (-not $ScriptsDir -or $ScriptsDir -eq '.') {
     $ScriptsDir = Join-Path $env:USERPROFILE ".dev-env/repo/scripts"
 }
 
-# ─── Helpers ────────────────────────────────────────────────
+# ─── Helper: run a phase script ────────────────────────────
 function Invoke-Phase {
     param([string]$Path, [string]$Name, [switch]$Critical)
     if (-not (Test-Path $Path)) {
         Write-Host "  ⚠  Phase script not found: $Path" -ForegroundColor Yellow
         if ($Critical) {
-            Write-Host ">>> $Name — FAIL (script not found, exit 1)" -ForegroundColor Red
+            Write-Host ">>> $Name — FAIL (exit 1)" -ForegroundColor Red
             exit 1
         }
         return $false
@@ -53,7 +57,7 @@ function Invoke-Phase {
 }
 
 # ═══════════════════════════════════════════════════════════
-#  PIPELINE — PHASE 00: CORE CHECK (critical)
+#  PHASE 00: CORE CHECK (critical — PS7 + git must exist)
 # ═══════════════════════════════════════════════════════════
 $phase00 = Join-Path $ScriptsDir "00-core-check.ps1"
 if (Test-Path $phase00) {
@@ -85,27 +89,8 @@ if (Test-Path $phase00) {
 }
 
 # ═══════════════════════════════════════════════════════════
-#  PIPELINE — PHASE 10: ENVIRONMENT DETECT
-# ═══════════════════════════════════════════════════════════
-$phase10 = Join-Path $ScriptsDir "10-detect.ps1"
-if (Test-Path $phase10) {
-    . $phase10
-} else {
-    Write-Host "  ⚠  10-detect.ps1 not found — continuing without inventory" -ForegroundColor Yellow
-}
-
-# ═══════════════════════════════════════════════════════════
-#  PIPELINE — PHASE 20: INVENTORY REPORT
-# ═══════════════════════════════════════════════════════════
-$phase20 = Join-Path $ScriptsDir "20-report.ps1"
-if (Test-Path $phase20) {
-    . $phase20
-} else {
-    Write-Host "  ⚠  20-report.ps1 not found" -ForegroundColor Yellow
-}
-
-# ═══════════════════════════════════════════════════════════
-#  PIPELINE — PHASE 30: REPOSITORY CLONE (critical)
+#  PHASE 30: REPOSITORY CLONE (critical — before detect)
+#  Clone BEFORE detect so all scripts come from fresh repo
 # ═══════════════════════════════════════════════════════════
 $phase30 = Join-Path $ScriptsDir "30-clone.ps1"
 if (Test-Path $phase30) {
@@ -115,7 +100,7 @@ if (Test-Path $phase30) {
         exit $LASTEXITCODE
     }
 } else {
-    # Inline clone (pre-repo)
+    # Inline clone (first run from gist)
     Write-Host ""
     Write-Host ">>> PHASE 30 — REPOSITORY CLONE (inline)" -ForegroundColor Cyan
     $RepoUrl = "https://github.com/doma77git/dev-env"
@@ -135,7 +120,27 @@ if (Test-Path $phase30) {
 }
 
 # ═══════════════════════════════════════════════════════════
-#  PIPELINE — PHASE 40: PROFILE & IDENTITY
+#  PHASE 10: ENVIRONMENT DETECT (from cloned repo)
+# ═══════════════════════════════════════════════════════════
+$phase10 = Join-Path $ScriptsDir "10-detect.ps1"
+if (Test-Path $phase10) {
+    . $phase10
+} else {
+    Write-Host "  ⚠  10-detect.ps1 not found — continuing without inventory" -ForegroundColor Yellow
+}
+
+# ═══════════════════════════════════════════════════════════
+#  PHASE 20: INVENTORY REPORT (from cloned repo)
+# ═══════════════════════════════════════════════════════════
+$phase20 = Join-Path $ScriptsDir "20-report.ps1"
+if (Test-Path $phase20) {
+    . $phase20
+} else {
+    Write-Host "  ⚠  20-report.ps1 not found" -ForegroundColor Yellow
+}
+
+# ═══════════════════════════════════════════════════════════
+#  PHASE 40: PROFILE & IDENTITY
 # ═══════════════════════════════════════════════════════════
 $phase40 = Join-Path $ScriptsDir "40-profile.ps1"
 if (Test-Path $phase40) {
@@ -145,9 +150,9 @@ if (Test-Path $phase40) {
 }
 
 # ═══════════════════════════════════════════════════════════
-#  PIPELINE — PHASE 50: PACKAGE SETUP (with confirm)
+#  PHASE 50: PACKAGE SETUP (with confirm dialog)
 # ═══════════════════════════════════════════════════════════
-$profileName = $ProfileName  # Set by 40-profile.ps1
+$profileName = $ProfileName
 if (-not $profileName) { $profileName = "home" }
 
 $phase50 = Join-Path $ScriptsDir "50-setup-$profileName.ps1"
@@ -180,7 +185,7 @@ if (Test-Path $phase50) {
 }
 
 # ═══════════════════════════════════════════════════════════
-#  PIPELINE — PHASE 60: ENVIRONMENT REPAIR (with confirm)
+#  PHASE 60: ENVIRONMENT REPAIR (with confirm dialog)
 # ═══════════════════════════════════════════════════════════
 $phase60 = Join-Path $ScriptsDir "60-repair.ps1"
 if (Test-Path $phase60) {
@@ -207,7 +212,7 @@ if (Test-Path $phase60) {
 }
 
 # ═══════════════════════════════════════════════════════════
-#  PIPELINE — PHASE 70: VALIDATION TEST
+#  PHASE 70: VALIDATION TEST
 # ═══════════════════════════════════════════════════════════
 $phase70 = Join-Path $ScriptsDir "70-test.ps1"
 if (Test-Path $phase70) {
