@@ -1,0 +1,31 @@
+{
+  "extends": "base",
+  "description": "Server / headless — management only, no GUI tools",
+  "packageManager": null,
+  "proxy": null,
+  "onedrive": null,
+  "headless": true,
+  "safeMode": true,
+  "missingOk": true,
+  "identity": {
+    "git": { "name": "Admin", "email": "admin@localhost" },
+    "github": null
+  },
+  "tools": {
+    "required": [],
+    "recommended": ["pwsh", "curl", "7z"],
+    "optional": ["git", "node", "python", "openssh"]
+  },
+  "categories": {
+    "TERMINAL": ["pwsh"],
+    "EDITORS": [],
+    "PROJECT": [],
+    "AI": [],
+    "UTILS": ["curl", "7z"],
+    "LAB": []
+  },
+  "services": {
+    "ssh": "enabled",
+    "winrm": "enabled"
+  }
+}

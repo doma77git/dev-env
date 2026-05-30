@@ -250,27 +250,122 @@ if ($tools.git -ne $null) {
         . $profileScript -WhatIf:$WhatIf
     }
 
-    # ═══ PHASE 50 — SETUP (dry-run only) — když -WhatIf, automaticky ═══
-    if ($WhatIf -and $ProfileName) {
+    # ═══ PHASE 50 — SETUP — VŽDY dry-run first, pak potvrzení ═══
+    Write-Host ""
+    Write-Host ">>> PHASE 50 — PACKAGE SETUP / INSTALACE" -ForegroundColor Green
+    $setupScript = Join-Path $RepoDir "scripts\50-setup-$ProfileName.ps1"
+    if (-not (Test-Path $setupScript)) {
+        Write-Host "  ⚠ Setup script not found: 50-setup-$ProfileName.ps1" -ForegroundColor Yellow
+        Write-Host "  Try manually: ./scripts/50-setup-home.ps1 -WhatIf" -ForegroundColor DarkCyan
+    } elseif ($WhatIf) {
+        Write-Host "  Dry-run mode — evaluating what would change ..." -ForegroundColor Magenta
+        & $setupScript -WhatIf
+        $report.pipeline.completed = @("00","10","20","30","40","50")
+        $report.pipeline.next = "60"
+    } else {
+        # Normal run: show dry-run first, then ask for confirmation
+        Write-Host "  Showing what would change (dry-run):" -ForegroundColor Magenta
         Write-Host ""
-        Write-Host ">>> PHASE 50 — PACKAGE SETUP (dry-run) / SUCHÁ INSTALACE" -ForegroundColor Magenta
-        $setupScript = Join-Path $RepoDir "scripts\50-setup-$ProfileName.ps1"
-        if (Test-Path $setupScript) {
-            & $setupScript -WhatIf
+        & $setupScript -WhatIf
+        Write-Host ""
+        # Dot-source Confirm-Action
+        $confirmScript = Join-Path $RepoDir "scripts\Confirm-Action.ps1"
+        if (Test-Path $confirmScript) { . $confirmScript }
+        if (Get-Command Confirm-Action -ErrorAction SilentlyContinue) {
+            if (Confirm-Action "Apply setup changes?" 5) {
+                & $setupScript -Force
+            } else {
+                Write-Host "  SKIPPED — run manually: ./scripts/50-setup-$ProfileName.ps1 -Force" -ForegroundColor Yellow
+            }
         } else {
-            Write-Host "  ⚠ Setup script not found: 50-setup-$ProfileName.ps1" -ForegroundColor Yellow
-            Write-Host "  Try manually: ./scripts/50-setup-home.ps1 -WhatIf" -ForegroundColor DarkCyan
+            Write-Host "  Confirm-Action not available — run manually:" -ForegroundColor Yellow
+            Write-Host "  ./scripts/50-setup-$ProfileName.ps1 -Force" -ForegroundColor Cyan
         }
     }
+
+    # ═══ PHASE 60 — REPAIR ═══════════════════════════════════
+    $repairScript = Join-Path $RepoDir "scripts\60-repair.ps1"
+    if (Test-Path $repairScript) {
+        if ($WhatIf) {
+            & $repairScript -WhatIf
+        } else {
+            & $repairScript -WhatIf
+            if (Get-Command Confirm-Action -ErrorAction SilentlyContinue) {
+                if (Confirm-Action "Apply repairs?" 5) {
+                    & $repairScript -Force
+                }
+            }
+        }
+    } else {
+        Write-Host "  ⚠ 60-repair.ps1 not found" -ForegroundColor Yellow
+    }
+
+    # ═══ PHASE 70 — TEST ═════════════════════════════════════
+    $testScript = Join-Path $RepoDir "scripts\70-test.ps1"
+    if (Test-Path $testScript) {
+        & $testScript
+        $testResult = $LASTEXITCODE
+        if ($testResult -eq 0) {
+            Write-Host ">>> 70 — validation-test PASS (exit 0)" -ForegroundColor Green
+        } else {
+            Write-Host ">>> 70 — validation-test FAIL (exit $testResult)" -ForegroundColor Red
+        }
+        # Update pipeline JSON with test result
+        $report.pipeline.testResult = if ($testResult -eq 0) { "pass" } else { "fail" }
+    } else {
+        Write-Host "  ⚠ 70-test.ps1 not found" -ForegroundColor Yellow
+    }
+
+    $report.pipeline.completed = @("00","10","20","30","40","50","60","70")
+    $report.pipeline.next = $null
 } else {
     Write-Host ""
-    Write-Host ">>> PHASE 30 — GIT NOT FOUND / GIT NENALEZEN — skipping" -ForegroundColor DarkYellow
-    Write-Host "  Install git and run bootstrap again. / Nainstaluj git a spus bootstrap znovu." -ForegroundColor DarkYellow
+    Write-Host ">>> PHASE 30 — GIT NOT FOUND — REMOTE FALLBACK" -ForegroundColor Yellow
+    Write-Host "  Using raw.githubusercontent.com as remote script source" -ForegroundColor DarkGray
+    $RepoRoot = "https://raw.githubusercontent.com/doma77git/dev-env/master"
+    Write-Host "  RepoRoot: $RepoRoot" -ForegroundColor Green
+    $usingFallback = $true
     Write-Host ""
-    Write-Host ">>> 30 — repository-clone FAIL" -ForegroundColor Red
-    Write-Host "  git not available, cannot proceed with phases 40-70" -ForegroundColor DarkYellow
+    Write-Host ">>> 30 — remote-fallback OK" -ForegroundColor Green
+    Write-Host "  remote source ready, proceeding with phase 40" -ForegroundColor DarkGray
+
+    # ═══ PHASE 40 — PROFILE (remote) ═══
+    Write-Host ""
+    Write-Host ">>> PHASE 40 — PROFILE & IDENTITY (remote)" -ForegroundColor Cyan
+    try {
+        $profileUrl = "$RepoRoot/scripts/40-profile.ps1"
+        Write-Host "  irm $profileUrl | iex" -ForegroundColor DarkGray
+        $profileResult = irm $profileUrl 2>&1
+        if ($profileResult) { Invoke-Expression ($profileResult -join "`n") }
+    } catch {
+        Write-Host "  Remote profile failed: $_" -ForegroundColor Red
+    }
+
+    # ═══ PHASE 50 — SETUP (remote, dry-run only) ═══
+    if ($WhatIf -and $ProfileName) {
+        Write-Host ""
+        Write-Host ">>> PHASE 50 — PACKAGE SETUP (remote dry-run)" -ForegroundColor Magenta
+        try {
+            $setupUrl = "$RepoRoot/scripts/50-setup-$ProfileName.ps1"
+            Write-Host "  irm $setupUrl | iex -WhatIf" -ForegroundColor DarkGray
+            $setupResult = irm $setupUrl 2>&1
+            if ($setupResult) { Invoke-Expression ($setupResult -join "`n") }
+        } catch {
+            Write-Host "  Remote setup failed: $_ — run manually" -ForegroundColor Yellow
+            Write-Host "  irm $RepoRoot/scripts/50-setup-home.ps1 | iex" -ForegroundColor DarkCyan
+        }
+    }
+}
+
+# ═══ PIPELINE FINALIZATION ═════════════════════════════════════
+# Update completed list — pick up phases that ran in both branches
+if (-not $report.pipeline.completed.Contains("50")) {
+    $report.pipeline.completed = @("00","10","20","30","40")
+    $report.pipeline.next = "50"
 }
 
 # ═══ RAW JSON — pro kopírování AI agentovi ═══════════════════
+# Re-serialize to pick up pipeline.completed/testResult updates
+$json = $report | ConvertTo-Json -Depth 6
 Write-Host ""
 Write-Host $json

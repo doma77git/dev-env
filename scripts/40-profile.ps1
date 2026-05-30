@@ -49,6 +49,11 @@ if ($Set -and $profiles[$Set]) {
         $ProfileName = "work"
         $detectReason = "corporate proxy: $detectedProxy"
     }
+    # Server detection (headless OS)
+    elseif ($osInfo.Caption -match "Server") {
+        $ProfileName = "server"
+        $detectReason = "server OS: $($osInfo.Caption)"
+    }
     # Vše ostatní = home
     else {
         $ProfileName = "home"
@@ -127,9 +132,9 @@ if (-not $WhatIf) {
 
 # 6. Output — 3 sections: SYSTEM / USER / IDENTITIES
 #     Výstup — systém, uživatel, identity
-$profileIcon = @{ "home"="🏠"; "work"="🏢"; "lab"="🧪" }
-$profileLabel = @{ "home"="HOME — personal PC"; "work"="CORP — corporate PC"; "lab"="LAB — test VM" }
-$profileColor = @{ "home"="Green"; "work"="Yellow"; "lab"="Magenta" }
+$profileIcon = @{ "home"="🏠"; "work"="🏢"; "lab"="🧪"; "server"="🖳" }
+$profileLabel = @{ "home"="HOME — personal PC"; "work"="CORP — corporate PC"; "lab"="LAB — test VM"; "server"="SERVER — headless" }
+$profileColor = @{ "home"="Green"; "work"="Yellow"; "lab"="Magenta"; "server"="DarkCyan" }
 
 Write-Host ""
 Write-Host "  4.1 ── SYSTEM ──────────────────────────────────" -ForegroundColor DarkCyan
