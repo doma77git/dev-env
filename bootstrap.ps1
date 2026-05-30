@@ -25,7 +25,118 @@ Write-Host ">>> PHASE 00 — BOOTSTRAP" -ForegroundColor Cyan
 Write-Host "  running gist from → $GistUrl" -ForegroundColor DarkGray
 Write-Host ""
 Write-Host ">>> 00 — bootstrap OK" -ForegroundColor Green
-Write-Host "  no recommendation, all OK proceeding with phase 10" -ForegroundColor DarkGray
+Write-Host "  no recommendation, all OK proceeding with phase 01" -ForegroundColor DarkGray
+
+# ═══ PHASE 01 — PROFILE — corporate / home / server / lab ══════
+#         Inline profile detect (cheap, no scripts needed)
+Write-Host ""
+Write-Host ">>> PHASE 01 — PROFILE DETECT / DETEKCE PROFILU" -ForegroundColor Cyan
+
+$csQuick = Get-CimInstance Win32_ComputerSystem -ErrorAction SilentlyContinue
+$osQuick = Get-CimInstance Win32_OperatingSystem -ErrorAction SilentlyContinue
+
+$safeMode = $false
+$ProfileName = "home"
+
+if ($csQuick.PartOfDomain -and $env:USERDOMAIN -ne "WORKGROUP") {
+    $ProfileName = "work"
+    $safeMode = $true
+    Write-Host "  🏢 WORK — corporate domain: $($csQuick.Domain)" -ForegroundColor Yellow
+} elseif ($osQuick.Caption -match "Server") {
+    $ProfileName = "server"
+    $safeMode = $true
+    Write-Host "  🖳 SERVER — headless OS: $($osQuick.Caption)" -ForegroundColor DarkCyan
+} elseif ($csQuick.Manufacturer -match "VMware|VirtualBox" -or $csQuick.Model -match "Virtual") {
+    $ProfileName = "lab"
+    Write-Host "  🧪 LAB — virtual machine: $($csQuick.Manufacturer) $($csQuick.Model)" -ForegroundColor Magenta
+} else {
+    Write-Host "  🏠 HOME — personal PC" -ForegroundColor Green
+}
+
+if ($safeMode) {
+    Write-Host "  🔒 SAFE MODE — no automatic installs" -ForegroundColor DarkYellow
+} else {
+    Write-Host "  ✅ Full mode — will install missing essentials" -ForegroundColor Cyan
+}
+
+Write-Host ""
+Write-Host ">>> 01 — profile detect OK" -ForegroundColor Green
+Write-Host "  profile: $ProfileName$(if($safeMode){', safeMode=true'})" -ForegroundColor DarkGray
+
+# ═══ PHASE 02 — CORE CHECK — PS7, shell, terminal, installer ═══
+Write-Host ""
+Write-Host ">>> PHASE 02 — CORE CHECK / ZÁKLADNÍ KONTROLA" -ForegroundColor Cyan
+
+$psMajor = $PSVersionTable.PSVersion.Major
+$isPS7 = ($psMajor -ge 7)
+
+if ($isPS7) {
+    Write-Host "  ✅ PowerShell $($PSVersionTable.PSVersion.ToString()) — OK" -ForegroundColor Green
+} elseif ($safeMode) {
+    Write-Host "  ❌ PowerShell $psMajor (need 7+) — safe mode, skip install" -ForegroundColor Yellow
+    Write-Host "     Install manually: https://github.com/PowerShell/PowerShell/releases" -ForegroundColor DarkGray
+} else {
+    Write-Host "  ❌ PowerShell $psMajor — attempting upgrade ..." -ForegroundColor Yellow
+    
+    # Try winget first
+    $wingetOk = $null
+    try { $wingetOk = Get-Command winget -ErrorAction Stop } catch {}
+    if ($wingetOk) {
+        Write-Host "     winget install Microsoft.PowerShell ..." -ForegroundColor Yellow
+        winget install --id Microsoft.PowerShell --accept-source-agreements --silent 2>$null
+    }
+    
+    # Check if pwsh exists now
+    $pwshPaths = @("$env:ProgramFiles\PowerShell\7\pwsh.exe", "${env:ProgramFiles(x86)}\PowerShell\7\pwsh.exe")
+    $pwshExe = $null
+    foreach ($p in $pwshPaths) { if (Test-Path $p) { $pwshExe = $p; break } }
+    
+    if (-not $pwshExe) {
+        # Direct MSI download
+        Write-Host "     Direct download Microsoft.PowerShell MSI ..." -ForegroundColor Yellow
+        $msiUrl = "https://github.com/PowerShell/PowerShell/releases/download/v7.4.6/PowerShell-7.4.6-win-x64.msi"
+        $msiPath = Join-Path $env:TEMP "PowerShell-7.4.6-win-x64.msi"
+        try {
+            (New-Object Net.WebClient).DownloadFile($msiUrl, $msiPath)
+            Start-Process msiexec.exe -ArgumentList "/i `"$msiPath`" /quiet /norestart ADD_EXPLORER_CONTEXT_MENU_OPENPOWERSHELL=1 ENABLE_PSREMOTING=1" -Wait
+            Remove-Item $msiPath -Force -ErrorAction SilentlyContinue
+            # Check again
+            foreach ($p in $pwshPaths) { if (Test-Path $p) { $pwshExe = $p; break } }
+        } catch { Write-Host "     Download failed: $_" -ForegroundColor Red }
+    }
+    
+    if ($pwshExe) {
+        Write-Host "  ✅ PowerShell 7 installed at $pwshExe" -ForegroundColor Green
+        Write-Host "  Spawning new pwsh window with full pipeline ..." -ForegroundColor Cyan
+        # Write temp script and spawn pwsh
+        $tempBootstrap = Join-Path $env:TEMP "dev-env-bootstrap.ps1"
+        $gistBootstrap = "https://gist.githubusercontent.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/raw/bootstrap.ps1"
+        @"
+`$env:DEV_ENV_WHATIF = '$(if ($WhatIf) { '1' } else { '' })'
+Write-Host '>>> Pipeline continues in PowerShell 7 ...' -ForegroundColor Cyan
+irm '$gistBootstrap' | iex
+Write-Host ''
+Write-Host '=== Pipeline complete ===' -ForegroundColor Green
+Read-Host 'Press Enter to close'
+"@ | Set-Content $tempBootstrap -Encoding UTF8
+        Start-Process $pwshExe -ArgumentList "-NoProfile -File `"$tempBootstrap`"" -WindowStyle Normal
+        exit 0
+    } else {
+        Write-Host "  ❌ Could not install PowerShell 7" -ForegroundColor Red
+        Write-Host "     Install manually: https://github.com/PowerShell/PowerShell/releases" -ForegroundColor DarkGray
+    }
+}
+
+# Check shell, terminal, installer (informational only)
+$wtCmd = $null; try { $wtCmd = Get-Command wt -ErrorAction Stop } catch {}
+Write-Host "  $(if ($isPS7) { '✅' } else { '⬚' }) Shell: pwsh $($PSVersionTable.PSVersion.ToString())" -ForegroundColor $(if ($isPS7) { 'Green' } else { 'DarkGray' })
+Write-Host "  $(if ($wtCmd) { '✅' } else { '⬚' }) Terminal: $(if ($wtCmd) { (Get-Command wt).Source } else { 'not installed' })" -ForegroundColor $(if ($wtCmd) { 'Green' } else { 'DarkGray' })
+$wingetCheck = $null; try { $wingetCheck = Get-Command winget -ErrorAction Stop } catch {}
+Write-Host "  $(if ($wingetCheck) { '✅' } else { '⬚' }) Installer: $(if ($wingetCheck) { 'winget' } else { 'none found — manual install' })" -ForegroundColor $(if ($wingetCheck) { 'Green' } else { 'DarkGray' })
+
+Write-Host ""
+Write-Host ">>> 02 — core check OK" -ForegroundColor Green
+Write-Host "  $(if ($isPS7) { 'Proceeding with phase 10' } else { 'PS5 — limited pipeline mode' })" -ForegroundColor DarkGray
 
 # ═══ PHASE 10 — DETECT — inventura stroje (self‑contained, no git) ═══
 #         Inventory — nepotřebuje git, vše je uvnitř
@@ -159,7 +270,7 @@ if ($previous) {
 #     Strukturovaný výstup pro AI i člověka
 $report = [ordered]@{
     pipeline = [ordered]@{
-        phases    = [ordered]@{ "00"="bootstrap"; "10"="environment-detect"; "20"="inventory-report"; "30"="repository-clone"; "40"="profile-identity"; "50"="package-setup"; "60"="environment-repair"; "70"="validation-test" }
+        phases    = [ordered]@{ "00"="bootstrap"; "01"="profile"; "02"="core-check"; "10"="environment-detect"; "15"="inventory-report"; "20"="repository-clone"; "30"="profile-identity"; "40"="essentials-setup"; "50"="categories-setup"; "60"="environment-repair"; "70"="validation-test" }
         completed = @("00","10","20","30","40")
         next      = "50"
         total     = 8
@@ -194,11 +305,11 @@ Write-Host ""
 Write-Host ">>> 10 — environment-detect OK" -ForegroundColor Green
 Write-Host "  fingerprint: $fingerprint, OS: $($osInfo.caption) build $($osInfo.build), tools: $(($tools.GetEnumerator() | Where-Object { $_.Value -ne $null } | Measure-Object).Count)/$($detectTools.Count) detected" -ForegroundColor DarkGray
 
-# ═══ PHASE 20 — REPORT — uložit JSON + zobrazit status ═════
+# ═══ PHASE 15 — REPORT — uložit JSON + zobrazit status ═════
 #         Výstup pro uživatele
 $icon = @{ "new"="🔴"; "same"="🟢"; "os-changed"="🟠"; "tools-changed"="🟡" }
 Write-Host ""
-Write-Host ">>> PHASE 20 — INVENTORY REPORT / VÝSLEDEK" -ForegroundColor Cyan
+Write-Host ">>> PHASE 15 — INVENTORY REPORT / VÝSLEDEK" -ForegroundColor Cyan
 Write-Host "╔══════════════════════════════════════════╗" -ForegroundColor Cyan
 Write-Host "║  $($icon[$status])  $($status.ToUpper())" -ForegroundColor White
 foreach ($c in $changes) { Write-Host "║    $c" -ForegroundColor Yellow }
@@ -208,14 +319,14 @@ Write-Host "║  RPT  : $reportPath" -ForegroundColor Yellow
 Write-Host "╚══════════════════════════════════════════╝" -ForegroundColor Cyan
 
 Write-Host ""
-Write-Host ">>> 20 — inventory-report OK" -ForegroundColor Green
-Write-Host "  status: $status, proceeding with phase 30" -ForegroundColor DarkGray
+Write-Host ">>> 15 — inventory-report OK" -ForegroundColor Green
+Write-Host "  status: $status, proceeding with phase 20" -ForegroundColor DarkGray
 
-# ═══ PHASE 30 — CLONE — stáhnout repo (jen když git existuje) ═══
+# ═══ PHASE 20 — CLONE — stáhnout repo (jen když git existuje) ═══
 #         git clone → ~/.dev-env/repo/
 if ($tools.git -ne $null) {
     Write-Host ""
-    Write-Host ">>> PHASE 30 — REPOSITORY CLONE / KLONOVÁNÍ" -ForegroundColor Cyan
+    Write-Host ">>> PHASE 20 — REPOSITORY CLONE / KLONOVÁNÍ" -ForegroundColor Cyan
     if ((Test-Path $RepoDir) -and (Test-Path "$RepoDir\.git")) {
         Write-Host "  Already exists / Repo existuje — pulling ..." -ForegroundColor Yellow
         try {
@@ -240,19 +351,19 @@ if ($tools.git -ne $null) {
     }
     Write-Host "  Repo: $RepoDir" -ForegroundColor Green
     Write-Host ""
-    Write-Host ">>> 30 — repository-clone OK" -ForegroundColor Green
-    Write-Host "  repo at $RepoDir, proceeding with phase 40" -ForegroundColor DarkGray
+    Write-Host ">>> 20 — repository-clone OK" -ForegroundColor Green
+    Write-Host "  repo at $RepoDir, proceeding with phase 30" -ForegroundColor DarkGray
 
-    # ═══ PHASE 40 — PROFILE — detekce (home/work/lab) ═══════
+    # ═══ PHASE 30 — PROFILE — detekce (home/work/lab) ═══════
     $profileScript = Join-Path $RepoDir "scripts\40-profile.ps1"
     if (Test-Path $profileScript) {
         Write-Host ""
         . $profileScript -WhatIf:$WhatIf
     }
 
-    # ═══ PHASE 50 — SETUP — VŽDY dry-run first, pak potvrzení ═══
+    # ═══ PHASE 40 — ESSENTIALS — VŽDY dry-run first, pak potvrzení ═══
     Write-Host ""
-    Write-Host ">>> PHASE 50 — PACKAGE SETUP / INSTALACE" -ForegroundColor Green
+    Write-Host ">>> PHASE 40 — ESSENTIALS SETUP / ZÁKLADNÍ INSTALACE" -ForegroundColor Green
     $setupScript = Join-Path $RepoDir "scripts\50-setup-$ProfileName.ps1"
     if (-not (Test-Path $setupScript)) {
         Write-Host "  ⚠ Setup script not found: 50-setup-$ProfileName.ps1" -ForegroundColor Yellow
@@ -326,13 +437,13 @@ if ($tools.git -ne $null) {
     Write-Host "  RepoRoot: $RepoRoot" -ForegroundColor Green
     $usingFallback = $true
     Write-Host ""
-    Write-Host ">>> 30 — remote-fallback OK" -ForegroundColor Green
+    Write-Host ">>> 20 — remote-fallback OK" -ForegroundColor Green
     Write-Host "  remote source ready, proceeding with phase 40" -ForegroundColor DarkGray
 
-    # ═══ PHASE 40 — PROFILE (remote) ═══
+    # ═══ PHASE 30 — PROFILE (remote) ═══
     # Minimal inline profile detection (no local scripts available)
     Write-Host ""
-    Write-Host ">>> PHASE 40 — PROFILE & IDENTITY (remote)" -ForegroundColor Cyan
+    Write-Host ">>> PHASE 30 — PROFILE & IDENTITY (remote)" -ForegroundColor Cyan
     $configDir = Join-Path $env:USERPROFILE ".dev-env\config"
     if (Test-Path "$configDir\profile.json") {
         $ProfileName = (Get-Content "$configDir\profile.json" -Raw | ConvertFrom-Json).profile
@@ -355,10 +466,10 @@ if ($tools.git -ne $null) {
     Write-Host ""
     Write-Host ">>> 40 — profile-identity OK (remote)" -ForegroundColor Green
 
-    # ═══ PHASE 50 — SETUP (remote, dry-run only) ═══
+    # ═══ PHASE 40 — SETUP (remote, dry-run only) ═══
     if ($WhatIf -and $ProfileName) {
         Write-Host ""
-        Write-Host ">>> PHASE 50 — PACKAGE SETUP (remote dry-run)" -ForegroundColor Magenta
+        Write-Host ">>> PHASE 40 — ESSENTIALS SETUP (remote dry-run)" -ForegroundColor Magenta
         try {
             $setupUrl = "$RepoRoot/scripts/50-setup-$ProfileName.ps1"
             Write-Host "  irm $setupUrl | iex -WhatIf" -ForegroundColor DarkGray
