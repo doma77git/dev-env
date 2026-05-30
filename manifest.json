@@ -3,9 +3,9 @@
   "$id": "https://doma77git.github.io/dev-env/manifest.json",
 
   "project": "dev-env",
-  "version": "1.0.0",
+  "version": "1.1.1",
   "created": "2026-05-29",
-  "updated": "2026-05-30",
+  "updated": "2026-05-31",
   "entrypoint": "index.html",
   "authority": {
     "source": "https://github.com/doma77git/dev-env",
@@ -17,7 +17,7 @@
     "bootstrap": [
       { "file": "bootstrap.ps1", "role": "Windows PS7 entry — orchestrator (00→30→10→20→40→50→60→70)", "runtime": "irm <gist>/bootstrap.ps1 | iex" },
       { "file": "00-bootstrap-fallback.ps1", "role": "Windows PS5 entry — detect+recommend only (no auto-install)", "runtime": "powershell -c \"irm <gist>/00-bootstrap-fallback.ps1 | iex\"" },
-      { "file": "bootstrap.sh",  "role": "Linux/WSL entry point",  "runtime": "curl -fsSL <gist>/bootstrap.sh | bash" }
+      { "file": "bootstrap.sh",  "role": "Linux/WSL entry — orchestrator (00→30→10→20→40→50), WhatIf support",  "runtime": "DEV_ENV_WHATIF=1 curl -fsSL <gist>/bootstrap.sh | bash" }
     ],
     "profiles": [
       { "file": "profiles/base.json", "role": "Shared defaults — all profiles inherit", "extends": null },
@@ -37,22 +37,28 @@
       { "file": "scripts/50-setup-lab.ps1",         "role": "Lab VM — WSL, scoop, experimental (ShouldProcess)", "runtime": "scripts/50-setup-lab.ps1 [-WhatIf|-Force|-Confirm]" },
       { "file": "scripts/50-setup-work.ps1",        "role": "Corporate PC — proxy, VPN, manual (ShouldProcess)", "runtime": "scripts/50-setup-work.ps1 [-WhatIf|-Force|-Confirm]" },
       { "file": "scripts/60-repair.ps1",            "role": "Repair PATH, HOME, OneDrive, SSH (ShouldProcess)", "runtime": "scripts/60-repair.ps1 [-WhatIf|-Force|-Confirm]" },
-      { "file": "scripts/70-test.ps1",              "role": "Validate environment — 14 checks", "runtime": "scripts/70-test.ps1 (exit 0=pass)" },
+      { "file": "scripts/70-test.ps1",              "role": "Validate environment — 15 checks", "runtime": "scripts/70-test.ps1 (exit 0=pass)" },
       { "file": "scripts/Confirm-Action.ps1",       "role": "Interactive confirm with 10s timeout, headless detection", "runtime": ". ./scripts/Confirm-Action.ps1" },
-      { "file": "scripts/link-configs.ps1",         "role": "Symlink configs from repo to ~/", "runtime": "scripts/link-configs.ps1 [-WhatIf|-Force]" }
+      { "file": "scripts/link-configs.ps1",         "role": "Symlink configs from repo to ~/", "runtime": "scripts/link-configs.ps1 [-WhatIf|-Force]" },
+      { "file": "scripts/undo-last.ps1",            "role": "Rollback guidance — parse last transcript log", "runtime": "scripts/undo-last.ps1 [-Pager]" }
     ],
     "configs": [
       { "file": "configs/git/.gitconfig",   "role": "Shared Git config — symlink to ~/.gitconfig" },
       { "file": "configs/pwsh/profile.ps1", "role": "PowerShell profile — starship + aliases" }
     ],
     "ai": [
-      { "file": "ai/context.md",   "role": "AI context — full lifecycle, decisions, prompts, OS-independent logic" },
-      { "file": "ai/schema.json",  "role": "JSON Schema for bootstrap reports — AI-readable contract" }
+      { "file": "copilot-instructions.md",        "role": "Agent instructions — hard rules, preferences, project structure" },
+      { "file": "AGENTS.md",                      "role": "AI entry point — loaded by Copilot, Claude Code, Cursor, Codex" },
+      { "file": ".github/copilot-instructions.md","role": "GitHub Copilot instructions — repo context, agents, prompts" },
+      { "file": ".cursorrules",                   "role": "Cursor IDE rules — mirrors copilot-instructions.md" },
+      { "file": "ai/context.md",                  "role": "AI context — full lifecycle, decisions, prompts, OS-independent logic" },
+      { "file": "ai/copilotchat.md",              "role": "Copilot Chat conversation history and context" },
+      { "file": "ai/schema.json",                 "role": "JSON Schema for bootstrap reports — AI-readable contract" }
     ],
     "docs": [
       { "file": "docs/index.md",     "role": "Landing page — GitHub Pages" },
-      { "file": "docs/architecture.md", "role": "Architecture — pipeline flow, layers" },
-      { "file": "docs/workflows.md", "role": "Workflows — step-by-step guides" }
+      { "file": "docs/architecture.md", "role": "Architecture — pipeline flow, layers, rollback" },
+      { "file": "docs/workflows.md", "role": "Workflows — step-by-step guides, GPG, server" }
     ],
     "menu": [
       { "file": "menu/menu.ps1", "role": "Interactive terminal menu — all actions" }
@@ -72,8 +78,8 @@
       "20 — REPORT: JSON → ~/.dev-env/report-*.json + machines.json (append)",
       "40 — PROFILE: home|work|lab|server, git identity, GitHub, SSH (scripts/40-profile.ps1)",
       "50 — SETUP: packages, dirs, git config (scripts/50-setup-*.ps1, with ShouldProcess)",
-      "60 — REPAIR: PATH, HOME, OneDrive, SSH (scripts/60-repair.ps1, with ShouldProcess)",
-      "70 — TEST: 14 checks → pass/fail → exit code (scripts/70-test.ps1)"
+      "60 — REPAIR: PATH, HOME, OneDrive, SSH (scripts/60-repair.ps1, with ShouldProcess, transcript logged)",
+      "70 — TEST: 15 checks → pass/fail → exit code (scripts/70-test.ps1)"
     ]
   },
 
@@ -126,10 +132,15 @@
   },
 
   "todo": [
-    { "item": "Linux/WSL bootstrap.sh parity with .ps1", "status": "pending", "desc": "WhatIf, identity detection, porovnávač." },
-    { "item": "Interaktivní režim v setup-home.ps1", "status": "pending", "desc": "Výběr packages, identity prompt." },
-    { "item": "SSH keygen prompt v setupu", "status": "pending", "desc": "Když chybí klíče, nabídnout ssh-keygen." },
-    { "item": "Menu aktualizace na nové scripty", "status": "pending", "desc": "menu/menu.ps1 — přidat volby pro 00-core-check, 10-detect, 20-report, 30-clone." }
+    { "item": "Linux/WSL bootstrap.sh parity with .ps1", "status": "done", "desc": "v1.1.0 — WhatIf, clone→detect→report→profile→setup, home+lab+work+server." },
+    { "item": "GPG commit signing guidance", "status": "done", "desc": "v1.1.0 — detection in 40-profile.ps1 for work/server, guidance in workflows." },
+    { "item": "Rollback / transcript logging", "status": "done", "desc": "v1.1.0 — Start-Transcript on phases 50-60, undo-last.ps1 for guidance." },
+    { "item": "CI/CD pipeline", "status": "done", "desc": "v1.1.0 — .github/workflows/ci.yml + pr.yml + gist-sync.yml." },
+    { "item": "Profile JSON validation", "status": "done", "desc": "v1.1.0 — validates extends/identity/safeMode in 40-profile.ps1 + 70-test.ps1." },
+    { "item": "Server setup script (50-setup-server.ps1)", "status": "done", "desc": "v1.1.0 — minimal headless server toolchain." },
+    { "item": "Secrets list deduplication", "status": "done", "desc": "v1.1.0 — canonical list in profiles/base.json#/secrets, docs reference it." },
+    { "item": "Interaktivní režim v setup-*.ps1", "status": "pending", "desc": "Výběr packages, identity prompt." },
+    { "item": "SSH keygen prompt v setupu", "status": "pending", "desc": "Když chybí klíče, nabídnout ssh-keygen." }
   ],
 
   "pages": {

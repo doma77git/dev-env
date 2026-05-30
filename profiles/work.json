@@ -13,6 +13,11 @@
     "executionPolicy": "RemoteSigned"
   },
 
+  "git": {
+    "gpgSign": true,
+    "signingKey": "KEY-ID-PLACEHOLDER"
+  },
+
   "identity": {
     "git": {
       "name": "Jan Novak",

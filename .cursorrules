@@ -1,0 +1,54 @@
+# dev-env — Cursor Rules
+
+> Auto-loaded by Cursor IDE when working in this repository.
+> These rules mirror `copilot-instructions.md` (authoritative source).
+
+---
+
+## Safety — NEVER auto-install
+
+- No package manager commands (`winget`, `npm`, `apt`, `brew`, `scoop`, `choco`) without explicit user confirmation
+- `safeMode` profiles (work, server) block all installs unless explicitly confirmed
+- Phase 00 and 00-fallback detect prerequisites — they NEVER install
+- Phase 30 clone is always read-only
+
+## PowerShell Conventions
+
+- Shebang: `#!/usr/bin/env pwsh`
+- Header block with ROLE, RUN, INPUT, OUTPUT
+- `[CmdletBinding(SupportsShouldProcess)]` for mutation scripts
+- Full cmdlet names — NO aliases (`ls`, `gc`, `%`, `?`, `select`, `sort`, `where`)
+- `Join-Path` for paths — no string concatenation
+- `Write-Host` for user output, `Write-Output` for pipeline data
+- Bilingual comments: English functional, Czech context
+- Emoji indicators: ✅ OK, ❌ FAIL, ⚠️ WARN
+- Phase header: `Write-Host ">>> PHASE XX — NAME" -ForegroundColor <color>`
+
+## Pipeline Order
+
+```
+00 → 30 → 10 → 20 → 40 → 50 → 60 → 70
+```
+
+## JSON Profiles
+
+- Inherit from `base.json` via `"extends": "base"`
+- Required keys: `extends`, `identity`, `proxy`, `safeMode`
+- Secrets canonical source: `profiles/base.json#/secrets`
+
+## Secrets — NEVER commit
+
+`~/.ssh/`, `machines.json`, `~/.dev-env/config/`, `~/.gitconfig.user`, `~/.npmrc`, `~/.aws/`, `~/.azure/`
+
+## Documentation Style
+
+- Markdown with bilingual headers: `# 🏗️ English / Česky`
+- Emoji section prefixes
+- Mermaid diagrams for flows
+- Tables for structured data
+
+## Key Files
+
+- `manifest.json` — Authoritative metadata and file listing
+- `ai/context.md` — Full AI lifecycle and decision tree
+- `.github/instructions/` — Language-specific conventions

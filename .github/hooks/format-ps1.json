@@ -1,0 +1,20 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "type": "command",
+        "command": "pwsh -NoProfile -NonInteractive -File \".github/hooks/scripts/check-ps1-format.ps1\"",
+        "timeout": 10,
+        "description": "Validates PowerShell formatting conventions before writing .ps1 files. Asks for confirmation if content deviates from project standards."
+      }
+    ],
+    "PostToolUse": [
+      {
+        "type": "command",
+        "command": "pwsh -NoProfile -NonInteractive -File \".github/hooks/scripts/auto-format-ps1.ps1\"",
+        "timeout": 15,
+        "description": "Auto-formats .ps1 files after successful write using PSScriptAnalyzer if available."
+      }
+    ]
+  }
+}

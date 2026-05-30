@@ -1,0 +1,29 @@
+# === .github/workflows/gist-sync.yml ==============================
+# ROLE:   Auto-update Gist on GitHub Release publish
+#         Syncs bootstrap.ps1, bootstrap.sh, 00-bootstrap-fallback.ps1
+# ==============================================================
+name: Sync Gist on Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  sync-gist:
+    name: Update Gist
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update Gist
+        env:
+          GH_TOKEN: ${{ secrets.GIST_TOKEN }}
+        run: |
+          GIST_ID="2f489d9ce5e7e0ff75b17cbe8011bbb5"
+          echo "Syncing bootstrap files to gist $GIST_ID ..."
+          gh gist edit "$GIST_ID" \
+            bootstrap.ps1 \
+            bootstrap.sh \
+            scripts/00-bootstrap-fallback.ps1 \
+            --desc "dev-env bootstrap — auto-synced from release ${{ github.ref_name }}"
+          echo "Gist updated."

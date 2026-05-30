@@ -24,6 +24,20 @@ Get-ChildItem "$profilesDir/*.json" | ForEach-Object {
     catch { Write-Host "  WARN: cannot parse $($_.Name)" -ForegroundColor Yellow }
 }
 
+# 1b. Validate profile JSON structure
+$requiredKeys = @("extends", "identity", "proxy", "safeMode", "tools")
+foreach ($pname in $profiles.Keys) {
+    $p = $profiles[$pname]
+    $issues = @()
+    if ($pname -ne "base" -and -not $p.extends) { $issues += "missing 'extends'" }
+    if (-not $p.identity) { $issues += "missing 'identity'" }
+    elseif (-not $p.identity.git) { $issues += "missing 'identity.git'" }
+    if ($p.safeMode -isnot [bool] -and $null -ne $p.safeMode) { $issues += "'safeMode' must be boolean" }
+    if ($issues.Count -gt 0) {
+        Write-Host "  WARN: profile '$pname' validation issues: $($issues -join ', ')" -ForegroundColor Yellow
+    }
+}
+
 # 2. Manual override / ruční přepsání
 if ($Set -and $profiles[$Set]) {
     $ProfileName = $Set
@@ -184,6 +198,17 @@ if ($sshKeys.Count -gt 0) {
     Write-Host "  SSH keys : $($sshKeys.Count) ($keyTypes)" -ForegroundColor Green
 } else {
     Write-Host "  SSH keys : none" -ForegroundColor Yellow
+}
+# GPG signing (corporate profiles)
+if ($ProfileName -eq "work" -or $ProfileName -eq "server") {
+    $gpgKey = try { git config --global user.signingkey 2>$null } catch { $null }
+    if ($gpgKey) {
+        Write-Host "  GPG sign : $gpgKey ✅" -ForegroundColor Green
+    } else {
+        Write-Host "  GPG sign : not configured ⚠" -ForegroundColor Yellow
+        Write-Host "           ℹ Run: git config --global user.signingkey <KEY>" -ForegroundColor DarkGray
+        Write-Host "           ℹ Run: git config --global commit.gpgsign true" -ForegroundColor DarkGray
+    }
 }
 
 Write-Host "  4.4 ── TOOLS ───────────────────────────────────" -ForegroundColor DarkCyan

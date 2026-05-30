@@ -26,6 +26,16 @@
     "forbiddenPatterns": ["OneDrive", "AppData\\Local\\Temp"]
   },
 
+  "secrets": [
+    "~/.ssh/                — SSH private keys (never commit)",
+    "~/.dev-env/machines.json — Machine detection history (never commit)",
+    "~/.dev-env/config/     — Local profile overrides (never commit)",
+    "~/.gitconfig.user      — Personal Git identity (never commit)",
+    "~/.npmrc               — NPM registry tokens (never commit)",
+    "~/.aws/                — AWS credentials (never commit)",
+    "~/.azure/              — Azure credentials (never commit)"
+  ],
+
   "sync": {
     "neverCommit": [
       "~/.ssh/",

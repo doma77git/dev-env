@@ -264,7 +264,7 @@ cd ~/.dev-env/repo
 | ✅ | 30-clone.ps1 — vždy běží i v dry-run (read-only) |
 | ✅ | 10-detect.ps1 — inventura (oddělená z bootstrap.ps1) |
 | ✅ | 20-report.ps1 — zobrazení + JSON (oddělená) |
-| ✅ | Profily — base, home, work, lab + auto-detekce |
+| ✅ | Profily — base, home, work, lab, server + auto-detekce |
 | ✅ | Identita — auto-detekce z git configu (uložena v identity.json) |
 | ✅ | GitHub + SSH detekce v profilu |
 | ✅ | safeMode — corporate/server = no auto-install |
@@ -273,14 +273,21 @@ cd ~/.dev-env/repo
 | ✅ | `scripts/Confirm-Action.ps1` — 10s timeout, headless detect |
 | ✅ | Deep merge v `40-profile.ps1` — rekurzivní merge profilů |
 | ✅ | Porovnávač tools — robustní, žádné falešné "Gone" |
-| 🟠 | Linux/WSL `bootstrap.sh` — parity s `.ps1` verzí |
+| ✅ | `bootstrap.sh` — Linux/WSL orchestrátor (00→30→10→20→40→50) + WhatIf |
+| ✅ | GPG commit signing — detekce v 40-profile.ps1 pro work/server |
+| ✅ | Rollback — transcript logging + `scripts/undo-last.ps1` |
+| ✅ | CI/CD — `.github/workflows/ci.yml` + `pr.yml` + `gist-sync.yml` |
+| ✅ | Profile validace — kontrola `extends`/`identity`/`safeMode` |
+| ✅ | `scripts/50-setup-server.ps1` — headless server instalace |
+| ✅ | Secrets deduplikace — kanonický seznam v `profiles/base.json#/secrets` |
 | 🟠 | Interaktivní režim v setup-*.ps1 (výběr packages) |
 | 🟠 | SSH keygen prompt v setupu (když chybí klíče) |
-| 🟠 | Menu — přidat volby pro nové scripty |
 
 ---
 
 ## ⚠️ Co se nikdy nesyncuje
+
+> Kanonický seznam: [`profiles/base.json#/secrets`](profiles/base.json) — jediný zdroj pravdy.
 
 | Složka | Důvod |
 |---|---|
@@ -292,4 +299,4 @@ cd ~/.dev-env/repo
 
 ---
 
-*dev-env v1.0.0 · [manifest.json](manifest.json)*
+*dev-env v1.1.0 · [manifest.json](manifest.json)*

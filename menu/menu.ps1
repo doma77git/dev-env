@@ -14,7 +14,7 @@ while ($true) {
     Write-Host "╠══════════════════════════════════════════╣" -ForegroundColor Cyan
     Write-Host "║                                            ║"
     Write-Host "║  [1] 🏠  Profile       / Profil           ║"
-    Write-Host "║  [2] 🔍  Detect        / Detekce          ║"
+    Write-Host "║  [2] 🔍  Setup (dry-run) / Instalace nasucho ║"
     Write-Host "║  [3] 🔧  Repair        / Opravy           ║"
     Write-Host "║  [4] ✅  Test          / Testy            ║"
     Write-Host "║  [5] 📄  Report        / Report           ║"

@@ -66,10 +66,11 @@ bootstrap.ps1 (GIST)
   │   scripts/60-repair.ps1
   │   PATH, HOME, OneDrive, SSH
   │   [CmdletBinding(SupportsShouldProcess)]
+  │   📝 Transcript logged → ~/.dev-env/logs/
   │
   └─ 70. TEST ─────────────────────────
       scripts/70-test.ps1
-      14 checks → pass/fail → exit code
+      15 checks → pass/fail → exit code
       "testResult" in pipeline JSON
 ```
 
@@ -130,6 +131,7 @@ Identity priority (phase 40):
 | Headless (CI) | Confirm-Action timeout → skip |
 | Corrupted machines.json | try/catch → prázdná historie |
 | Symlink bez admin | fallback Copy-Item |
+| Transcript unavailable | pokračuje bez logování |
 | OneDrive redirect | repair varuje, neopravuje automaticky |
 
 ## TODO / Roadmap
@@ -142,9 +144,31 @@ Identity priority (phase 40):
 | ✅ | 00-core-check.ps1 — žádná instalace |
 | ✅ | 00-bootstrap-fallback.ps1 — detect→recommend→exit |
 | ✅ | Confirm-Action 10s timeout + headless |
-| 🟠 | Linux/WSL bootstrap.sh — parity s .ps1 |
+| ✅ | Linux/WSL bootstrap.sh — WhatIf, full pipeline (v1.1.0) |
+| ✅ | GPG commit signing — detekce pro work/server (v1.1.0) |
+| ✅ | Server setup script (scripts/50-setup-server.ps1) (v1.1.0) |
+| ✅ | Rollback — transcript logging + undo-last.ps1 (v1.1.0) |
+| ✅ | Profile JSON validation (v1.1.0) |
+| ✅ | CI/CD — GitHub Actions (v1.1.0) |
 | 🟠 | Interaktivní režim v setup (výběr packages) |
-| 🟠 | Server setup script (scripts/50-setup-server.ps1) |
+| 🟠 | SSH keygen prompt v setupu |
+
+---
+
+## Rollback / Zpětný chod
+
+```
+Phase 50-60:
+  Start-Transcript → ~/.dev-env/logs/setup-YYYYMMDD-HHmmss.log
+  ... all setup/repair output captured ...
+  Stop-Transcript
+
+scripts/undo-last.ps1:
+  Parse last transcript → extract winget installs, dir creates, git configs
+  Display undo commands (manual guidance, not automatic)
+```
+
+Transcripts capture EVERYTHING that PowerShell outputs during setup/repair phases. The `undo-last.ps1` script parses them for recognizable actions and suggests reversal commands. Rollback is manual by design — automatic undo of package installs is too fragile across package managers.
 
 ---
 

@@ -14,10 +14,12 @@ One gist, one repo, all machines. Detects, reports, repairs, tests.
 |---|---|
 | `bootstrap` | Self-contained detect script — runs without git, without install |
 | `fingerprint` | SHA256(hostname\|username\|domain) — unique machine+user ID |
-| `profile` | `home` / `work` / `lab` — auto-detected machine context |
+| `profile` | `home` / `work` / `lab` / `server` — auto-detected machine context |
 | `machines.json` | Append-only history — LOCAL, never synced, never committed |
 | `WhatIf` | PowerShell dry-run convention — show what WOULD change |
 | `ShouldProcess` | PowerShell advanced function — enables -WhatIf, -Confirm on mutations |
+| `Transcript` | PowerShell logging — captures all phase 50-60 output to ~/.dev-env/logs/ |
+| `GPG signing` | Git commit signing — detected and recommended for work/server profiles |
 
 ---
 
@@ -29,6 +31,7 @@ USER runs:
   $env:DEV_ENV_WHATIF='1'; irm ... | iex   (Windows — dry-run)
   ./bootstrap.ps1 -WhatIf                  (Windows — local dry-run)
   curl -fsSL <gist>/bootstrap.sh | bash   (Linux/WSL)
+  DEV_ENV_WHATIF=1 curl ... | bash        (Linux/WSL — dry-run)
 
 WHAT HAPPENS:
   bootstrap.*  → orchestrator volá fáze:
@@ -40,13 +43,13 @@ WHAT HAPPENS:
          fingerprint, OS, 13 tools, PATH, OneDrive, corporate
     → 20. REPORT (scripts/20-report.ps1)
          JSON → stdout + ~/.dev-env/report-*.json + machines.json
-    → 40. PROFILE (scripts/40-profile.ps1)
-         home|work|lab|server, git identity, GitHub, SSH
+    → 40. PROFILE (scripts/40-profile.ps1), GPG
     → 50. SETUP (scripts/50-setup-{profile}.ps1, ShouldProcess)
-         dry-run + confirm → instalace
+         dry-run + confirm → instalace (📝 transcript logged)
     → 60. REPAIR (scripts/60-repair.ps1, ShouldProcess)
-         PATH, HOME, OneDrive, SSH
+         PATH, HOME, OneDrive, SSH (📝 transcript logged)
     → 70. TEST (scripts/70-test.ps1)
+         15EST (scripts/70-test.ps1)
          14 checks → exit 0=pass, 1=fail
 ```
 
@@ -308,10 +311,14 @@ What should I fix?
 
 | Status | Item |
 |---|---|
-| 🟠 | Linux/WSL `bootstrap.sh` — parity s `.ps1` (WhatIf, identity, porovnávač) |
+| ✅ | Linux/WSL `bootstrap.sh` — parity s `.ps1` (v1.1.0: WhatIf, full pipeline 00→30→10→20→40→50) |
+| ✅ | GPG commit signing — detekce a guidance pro work/server (v1.1.0) |
+| ✅ | Rollback — transcript logging + `undo-last.ps1` (v1.1.0) |
+| ✅ | CI/CD — GitHub Actions ci.yml + pr.yml + gist-sync.yml (v1.1.0) |
+| ✅ | Server setup — `50-setup-server.ps1` (v1.1.0) |
+| ✅ | Profile validation — JSON schema check v 40-profile.ps1 + 70-test.ps1 (v1.1.0) |
 | 🟠 | Interaktivní režim v setup-home.ps1 (výběr packages) |
 | 🟠 | SSH keygen prompt v setupu (když chybí klíče) |
-| 🟠 | Menu — aktualizace na nové scripty |
 
 ---
 
@@ -325,6 +332,7 @@ What should I fix?
 | `machines.json` | **Local only** | Never sync | — |
 | `~/.dev-env/config/` | **Local only** | Never sync | — |
 | `~/.ssh/` | **Local only** | Never sync | — |
+| `~/.dev-env/logs/` | **Local only** | Never sync | Transcript logs |
 | Configs (`~/.gitconfig`...) | Symlink from repo | `link-configs.ps1` | After setup |
 
 ---

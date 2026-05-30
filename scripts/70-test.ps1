@@ -64,7 +64,21 @@ check "~/.ssh/ exists"                       (Test-Path "$env:USERPROFILE\.ssh")
 $keys = Get-ChildItem "$env:USERPROFILE\.ssh\id_*" -ErrorAction SilentlyContinue
 check "SSH key exists"                       ($keys.Count -gt 0) "ssh-keygen -t ed25519"
 
-# 12. OneDrive redirects
+# 12. Profile JSON integrity
+$profilesDir = Join-Path $PSScriptRoot ".." "profiles"
+$profilesOk = $true
+if (Test-Path $profilesDir) {
+    Get-ChildItem "$profilesDir/*.json" | ForEach-Object {
+        try {
+            $p = Get-Content $_.FullName -Raw | ConvertFrom-Json
+            if ($_.BaseName -ne "base" -and -not $p.extends) { $profilesOk = $false }
+            if (-not $p.identity) { $profilesOk = $false }
+        } catch { $profilesOk = $false }
+    }
+}
+check "Profile JSONs valid"                  $profilesOk "Validate profiles/*.json syntax"
+
+# 13. OneDrive redirects
 $odOk = $true
 if (Test-Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders") {
     foreach ($n in @("Desktop","Documents")) {

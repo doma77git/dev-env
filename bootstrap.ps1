@@ -159,6 +159,11 @@ if (Test-Path $phase40) {
 $profileName = $ProfileName
 if (-not $profileName) { $profileName = "home" }
 
+# Start transcript logging for rollback support
+$null = New-Item -ItemType Directory -Path "$env:USERPROFILE\.dev-env\logs" -Force
+$transcriptPath = "$env:USERPROFILE\.dev-env\logs\setup-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
+try { Start-Transcript -Path $transcriptPath -Append -ErrorAction Stop } catch { Write-Host "  ⚠  Transcript logging unavailable" -ForegroundColor DarkGray }
+
 $phase50 = Join-Path $ScriptsDir "50-setup-$profileName.ps1"
 if (Test-Path $phase50) {
     if ($WhatIf) {
@@ -214,6 +219,10 @@ if (Test-Path $phase60) {
 } else {
     Write-Host "  ⚠  60-repair.ps1 not found" -ForegroundColor Yellow
 }
+
+# Stop transcript logging
+try { Stop-Transcript -ErrorAction Stop | Out-Null } catch {}
+if (Test-Path $transcriptPath) { Write-Host "  📝  Transcript saved: $transcriptPath" -ForegroundColor DarkGray }
 
 # ═══════════════════════════════════════════════════════════
 #  PHASE 70: VALIDATION TEST

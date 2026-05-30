@@ -1,0 +1,60 @@
+# === .github/workflows/ci.yml ======================================
+# ROLE:   CI pipeline — runs on push to master
+# CHECKS: 00-core-check + 70-test (Windows + Linux)
+# ==============================================================
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  workflow_dispatch:
+
+jobs:
+  windows:
+    name: Windows (pwsh)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: PHASE 00 — Core Check
+        shell: pwsh
+        run: ./scripts/00-core-check.ps1
+
+      - name: PHASE 70 — Validation Test
+        shell: pwsh
+        run: ./scripts/70-test.ps1
+
+  linux:
+    name: Linux (bash)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: PHASE 00 — Core Check (bash syntax)
+        run: bash -n bootstrap.sh
+
+      - name: PHASE 00 — Core Check (dry-run)
+        run: DEV_ENV_WHATIF=1 bash bootstrap.sh
+        continue-on-error: true  # May fail if no git config — acceptable
+
+  context-sync:
+    name: Context.md Sync Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify context.md references match scripts/
+        run: |
+          echo "Checking ai/context.md for stale references..."
+          # Extract script names from context.md
+          CONTEXT_REFS=$(grep -oP 'scripts/[\w.-]+\.ps1' ai/context.md | sort -u || true)
+          # List actual scripts
+          ACTUAL=$(ls scripts/*.ps1 2>/dev/null | sed 's|scripts/||' | sort -u || true)
+          # Check each context ref exists
+          for ref in $CONTEXT_REFS; do
+            fname=$(basename "$ref")
+            if ! echo "$ACTUAL" | grep -qF "$fname"; then
+              echo "::warning::context.md references '$ref' but file not found in scripts/"
+            fi
+          done
+          echo "Context sync check complete."

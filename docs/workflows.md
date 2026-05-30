@@ -153,11 +153,15 @@ cd ~/.dev-env/repo
 #    - vše musí být explicitně potvrzeno
 #    - proxy konfigurace
 
-# 4. Instalace — každý krok potvrdit
+# 4. GPG commit signing (doporučeno pro firemní stroj)
+git config --global user.signingkey <KEY-ID>
+git config --global commit.gpgsign true
+
+# 5. Instalace — každý krok potvrdit
 ./scripts/50-setup-work.ps1 -WhatIf
 ./scripts/50-setup-work.ps1 -Force
 
-# 5. Test
+# 6. Test
 ./scripts/70-test.ps1
 ```
 
@@ -201,3 +205,58 @@ git push
 # Nebo přes menu:
 ./menu/menu.ps1 → [6] Sync
 ```
+
+---
+
+## 🖳 Server / Headless
+
+```powershell
+# 1. Bootstrap — detekuje 🖳 server + safeMode
+irm https://gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/raw/bootstrap.ps1 | iex
+
+# 2. Profil → server (auto, headless, safeMode)
+cd ~/.dev-env/repo
+./scripts/40-profile.ps1
+
+# 3. Minimální instalace (git, pwsh, OpenSSH)
+./scripts/50-setup-server.ps1 -WhatIf
+./scripts/50-setup-server.ps1 -Force
+
+# 4. Test
+./scripts/70-test.ps1
+```
+
+### Linux server
+
+```bash
+# Detekuje server OS → 🖳 server profil
+curl -fsSL https://gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/raw/bootstrap.sh | bash
+
+# Minimální balíčky: git, curl, openssh-server
+```
+
+### ⚠️ Server varování
+
+- **No GUI** — žádný VS Code, Windows Terminal, Starship
+- **Minimální toolchain** — jen git, pwsh/curl, OpenSSH
+- **safeMode** — vše musí být explicitně potvrzeno
+- **SSH keys** — doporučeno vygenerovat: `ssh-keygen -t ed25519`
+
+---
+
+## ↩️ Rollback / Zpětný chod
+
+```powershell
+# Zobrazit poslední transcript log s návrhy pro rollback
+./scripts/undo-last.ps1
+
+# Zobrazit celý log po stránkách
+./scripts/undo-last.ps1 -Pager
+
+# Manuální rollback podle návrhů:
+#   winget uninstall --id <package-id>
+#   git config --global --unset <key>
+#   Remove-Item <created-directory>
+```
+
+Transcripty se ukládají do `~/.dev-env/logs/setup-*.log` během fází 50-60. `undo-last.ps1` je parsuje a navrhne konkrétní příkazy pro vrácení změn. Rollback je **manuální** — automatické vrácení instalací balíčků by bylo příliš křehké napříč různými package managery.
