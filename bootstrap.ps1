@@ -335,8 +335,10 @@ if ($tools.git -ne $null) {
     try {
         $profileUrl = "$RepoRoot/scripts/40-profile.ps1"
         Write-Host "  irm $profileUrl | iex" -ForegroundColor DarkGray
-        $profileResult = irm $profileUrl 2>&1
-        if ($profileResult) { Invoke-Expression ($profileResult -join "`n") }
+        $profileScript = irm $profileUrl 2>&1
+        # Fix $PSScriptRoot for remote execution
+        $profileScript = $profileScript -replace '\$PSScriptRoot', "'$RepoRoot/scripts'"
+        if ($profileScript) { Invoke-Expression ($profileScript -join "`n") }
     } catch {
         Write-Host "  Remote profile failed: $_" -ForegroundColor Red
     }
