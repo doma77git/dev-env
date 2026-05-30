@@ -3,9 +3,11 @@
 # ROLE:   Lab VM setup — scoop, WSL, experimental tools
 #         Instalace testovací VM
 # RUN:    ./50-setup-lab.ps1 -WhatIf     (dry run / suchý běh)
-#         ./50-setup-lab.ps1 -Force        (apply / aplikovat)
+#         ./50-setup-lab.ps1 -Force      (apply / aplikovat)
+#         ./50-setup-lab.ps1 -Confirm    (potvrzovat každou změnu)
 # ==============================================================
-param([switch]$Force, [switch]$WhatIf)
+[CmdletBinding(SupportsShouldProcess)]
+param([switch]$Force)
 
 $profile = Get-Content (Join-Path $PSScriptRoot ".." "profiles" "lab.json") -Raw | ConvertFrom-Json
 
@@ -23,7 +25,7 @@ if ($wslInstalled) {
     Write-Host "  OK  WSL is installed / nainstalováno" -ForegroundColor Green
 } else {
     Write-Host "  MISS WSL not installed / není nainstalováno" -ForegroundColor Yellow
-    if ($Force) {
+    if ($PSCmdlet.ShouldProcess("WSL + VirtualMachinePlatform features", "Enable Windows features")) {
         Write-Host "  Enabling WSL feature ..." -ForegroundColor DarkCyan
         try {
             dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /quiet /norestart | Out-Null
@@ -35,10 +37,6 @@ if ($wslInstalled) {
             Write-Host "  FAIL: $_ — try manually: dism /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all" -ForegroundColor Red
         }
     }
-    if ($WhatIf) {
-        Write-Host "  [WHATIF] Would enable WSL + VirtualMachinePlatform features" -ForegroundColor DarkCyan
-        Write-Host "  [WHATIF] Would set WSL 2 as default" -ForegroundColor DarkCyan
-    }
 }
 
 # 2. Scoop installation
@@ -48,7 +46,7 @@ if ($scoopInstalled) {
     Write-Host "  OK  Scoop installed / nainstalováno" -ForegroundColor Green
 } else {
     Write-Host "  MISS Scoop not installed / není nainstalováno" -ForegroundColor Yellow
-    if ($Force) {
+    if ($PSCmdlet.ShouldProcess("Scoop package manager", "Install via irm get.scoop.sh | iex")) {
         Write-Host "  Installing Scoop ..." -ForegroundColor DarkCyan
         try {
             Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force
@@ -57,9 +55,6 @@ if ($scoopInstalled) {
         } catch {
             Write-Host "  FAIL: $_ — try: irm get.scoop.sh | iex" -ForegroundColor Red
         }
-    }
-    if ($WhatIf) {
-        Write-Host "  [WHATIF] Would install Scoop via irm get.scoop.sh | iex" -ForegroundColor DarkCyan
     }
 }
 
@@ -94,8 +89,10 @@ foreach ($pkg in $scoopPackages) {
         Write-Host "  OK  $pkg" -ForegroundColor Green
     } else {
         Write-Host "  MISS $pkg" -ForegroundColor Yellow
-        if ($Force -and $scoopCmd)  { Write-Host "  Installing $pkg ..."; scoop install $pkg }
-        if ($WhatIf) { Write-Host "  [WHATIF] Would scoop install $pkg" -ForegroundColor DarkCyan }
+        if ($PSCmdlet.ShouldProcess($pkg, "scoop install")) {
+            Write-Host "  Installing $pkg ..."
+            scoop install $pkg 2>&1 | Out-Null
+        }
     }
 }
 
@@ -109,12 +106,10 @@ if ($dockerInstalled) {
         Write-Host "  OK  Docker daemon running / běží" -ForegroundColor Green
     } else {
         Write-Host "  ⚠  Docker installed but not running / nainstalováno ale neběží" -ForegroundColor Yellow
-        if ($WhatIf) { Write-Host "  [WHATIF] Would start Docker Desktop" -ForegroundColor DarkCyan }
     }
 } else {
     Write-Host "  MISS Docker not installed / není nainstalováno" -ForegroundColor Yellow
     Write-Host "       Install via: scoop install docker  or  winget install Docker.DockerDesktop" -ForegroundColor DarkGray
-    if ($WhatIf) { Write-Host "  [WHATIF] Would install Docker" -ForegroundColor DarkCyan }
 }
 
 # 5. Directories / složky (lab paths)
@@ -135,8 +130,10 @@ foreach ($d in $dirs) {
         Write-Host "  OK  $d" -ForegroundColor Green
     } else {
         Write-Host "  NEW $d" -ForegroundColor Yellow
-        if ($Force)   { New-Item -ItemType Directory -Path $expanded -Force | Out-Null; Write-Host "  Created" -ForegroundColor DarkCyan }
-        if ($WhatIf)  { Write-Host "  [WHATIF] Would create $d" -ForegroundColor DarkCyan }
+        if ($PSCmdlet.ShouldProcess($d, "Create directory")) {
+            New-Item -ItemType Directory -Path $expanded -Force | Out-Null
+            Write-Host "  Created" -ForegroundColor DarkCyan
+        }
     }
 }
 

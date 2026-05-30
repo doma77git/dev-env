@@ -3,9 +3,11 @@
 # ROLE:   Corporate PC (PPG) setup — no winget, proxy, VPN
 #         Instalace firemního PC
 # RUN:    ./50-setup-work.ps1 -WhatIf     (dry run / suchý běh)
-#         ./50-setup-work.ps1 -Force        (apply / aplikovat)
+#         ./50-setup-work.ps1 -Force      (apply / aplikovat)
+#         ./50-setup-work.ps1 -Confirm    (potvrzovat každou změnu)
 # ==============================================================
-param([switch]$Force, [switch]$WhatIf)
+[CmdletBinding(SupportsShouldProcess)]
+param([switch]$Force)
 
 $profile = Get-Content (Join-Path $PSScriptRoot ".." "profiles" "work.json") -Raw | ConvertFrom-Json
 
@@ -24,11 +26,10 @@ if ($proxyUrl) {
             $setCount++
         } else {
             Write-Host "  MISS $var" -ForegroundColor Yellow
-            if ($Force) {
+            if ($PSCmdlet.ShouldProcess("$var = $proxyUrl", "Set environment variable")) {
                 [Environment]::SetEnvironmentVariable($var, $proxyUrl, "User")
                 Write-Host "  Set $var = $proxyUrl" -ForegroundColor DarkCyan
             }
-            if ($WhatIf) { Write-Host "  [WHATIF] Would set $var = $proxyUrl" -ForegroundColor DarkCyan }
         }
     }
     # Git proxy
@@ -37,8 +38,10 @@ if ($proxyUrl) {
         Write-Host "  OK  git http.proxy = $proxyUrl" -ForegroundColor Green
     } else {
         Write-Host "  MISS git http.proxy" -ForegroundColor Yellow
-        if ($Force)   { git config --global http.proxy $proxyUrl; Write-Host "  Set git http.proxy" -ForegroundColor DarkCyan }
-        if ($WhatIf)  { Write-Host "  [WHATIF] Would set git http.proxy = $proxyUrl" -ForegroundColor DarkCyan }
+        if ($PSCmdlet.ShouldProcess("git http.proxy = $proxyUrl", "Set git proxy")) {
+            git config --global http.proxy $proxyUrl
+            Write-Host "  Set git http.proxy" -ForegroundColor DarkCyan
+        }
     }
 } else {
     Write-Host "  No proxy configured / proxy není nastaven" -ForegroundColor Yellow
@@ -87,7 +90,6 @@ foreach ($tool in $manualTools) {
     } else {
         Write-Host "  MISS $($tool.Name)" -ForegroundColor Yellow
         Write-Host "       $($tool.Url)" -ForegroundColor DarkGray
-        if ($WhatIf) { Write-Host "  [WHATIF] Would open download page for $($tool.Name)" -ForegroundColor DarkCyan }
     }
 }
 
@@ -99,8 +101,10 @@ if ($currentPolicy -eq $targetPolicy) {
     Write-Host "  OK  ExecutionPolicy = $currentPolicy" -ForegroundColor Green
 } else {
     Write-Host "  CHG ExecutionPolicy = $currentPolicy → $targetPolicy" -ForegroundColor Yellow
-    if ($Force)   { Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy $targetPolicy -Force; Write-Host "  Set" -ForegroundColor DarkCyan }
-    if ($WhatIf)  { Write-Host "  [WHATIF] Would set ExecutionPolicy $targetPolicy" -ForegroundColor DarkCyan }
+    if ($PSCmdlet.ShouldProcess("ExecutionPolicy $targetPolicy", "Set execution policy")) {
+        Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy $targetPolicy -Force
+        Write-Host "  Set" -ForegroundColor DarkCyan
+    }
 }
 
 # 5. Directories / složky (corporate paths)
@@ -121,8 +125,10 @@ foreach ($d in $dirs) {
         Write-Host "  OK  $d" -ForegroundColor Green
     } else {
         Write-Host "  NEW $d" -ForegroundColor Yellow
-        if ($Force)   { New-Item -ItemType Directory -Path $expanded -Force | Out-Null; Write-Host "  Created" -ForegroundColor DarkCyan }
-        if ($WhatIf)  { Write-Host "  [WHATIF] Would create $d" -ForegroundColor DarkCyan }
+        if ($PSCmdlet.ShouldProcess($d, "Create directory")) {
+            New-Item -ItemType Directory -Path $expanded -Force | Out-Null
+            Write-Host "  Created" -ForegroundColor DarkCyan
+        }
     }
 }
 

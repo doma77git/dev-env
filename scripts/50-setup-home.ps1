@@ -3,9 +3,11 @@
 # ROLE:   Home PC setup — winget install + symlink + folders
 #         Instalace domácího PC
 # RUN:    ./50-setup-home.ps1 -WhatIf    (dry run / suchý běh)
-#         ./50-setup-home.ps1 -Force       (apply / aplikovat)
+#         ./50-setup-home.ps1 -Force     (apply / aplikovat)
+#         ./50-setup-home.ps1 -Confirm   (potvrzovat každou změnu)
 # ==============================================================
-param([switch]$Force, [switch]$WhatIf)
+[CmdletBinding(SupportsShouldProcess)]
+param([switch]$Force)
 
 $profile = Get-Content (Join-Path $PSScriptRoot ".." "profiles" "home.json") -Raw | ConvertFrom-Json
 
@@ -21,11 +23,9 @@ if ($env:HOME -and $env:HOME -ne $env:USERPROFILE) {
     Write-Host "  HOME = USERPROFILE (OK)" -ForegroundColor Yellow
 } else {
     Write-Host "  HOME not set / nenastaveno" -ForegroundColor Red
-    if ($Force) {
+    if ($PSCmdlet.ShouldProcess("$env:USERPROFILE", "Set HOME environment variable")) {
         Write-Host "  Setting HOME = $env:USERPROFILE" -ForegroundColor Yellow
         [Environment]::SetEnvironmentVariable("HOME", $env:USERPROFILE, "User")
-    } elseif ($WhatIf) {
-        Write-Host "  [WHATIF] Would set HOME = $env:USERPROFILE" -ForegroundColor DarkCyan
     }
 }
 
@@ -50,8 +50,9 @@ foreach ($d in $dirs) {
         Write-Host "  OK  $d" -ForegroundColor Green
     } else {
         Write-Host "  NEW $d" -ForegroundColor Yellow
-        if ($Force)   { New-Item -ItemType Directory -Path $expanded -Force | Out-Null }
-        if ($WhatIf)  { Write-Host "  [WHATIF] Would create $d" -ForegroundColor DarkCyan }
+        if ($PSCmdlet.ShouldProcess($d, "Create directory")) {
+            New-Item -ItemType Directory -Path $expanded -Force | Out-Null
+        }
     }
 }
 
@@ -138,14 +139,10 @@ foreach ($catName in $categories.Keys) {
         }
     }
     
-    if (-not $allOk) {
-        if ($Force) {
-            foreach ($pkgId in $missing) {
-                Write-Host "    Installing $pkgId ..." -ForegroundColor Yellow
-                winget install --id $pkgId --accept-source-agreements 2>&1 | Out-Null
-            }
-        } elseif ($WhatIf) {
-            Write-Host "    [WHATIF] Would install: $($missing -join ', ')" -ForegroundColor DarkCyan
+    if ($missing.Count -gt 0 -and $PSCmdlet.ShouldProcess($missing -join ', ', "Install packages")) {
+        foreach ($pkgId in $missing) {
+            Write-Host "    Installing $pkgId ..." -ForegroundColor Yellow
+            winget install --id $pkgId --accept-source-agreements 2>&1 | Out-Null
         }
     }
 }
@@ -204,7 +201,7 @@ Write-Host "5.4 Config symlinks / symlinky" -ForegroundColor Cyan
 
 # 5. Git config / globální nastavení
 Write-Host "5.5 Git identity / identita" -ForegroundColor Cyan
-# Resolve identity: saved > git-config > profile default (same priority as profile.ps1)
+# Resolve identity: saved > git-config > profile default
 $identityFile = Join-Path $env:USERPROFILE ".dev-env" "config" "identity.json"
 $savedId = if (Test-Path $identityFile) { try { Get-Content $identityFile -Raw | ConvertFrom-Json } catch { $null } } else { $null }
 if ($savedId -and $savedId.git.email) {
@@ -224,17 +221,14 @@ if ($savedId -and $savedId.git.email) {
         Write-Host "  Using profile default: $gitName <$gitEmail> (PLACEHOLDER)" -ForegroundColor Yellow
     }
 }
-if ($Force) {
+if ($PSCmdlet.ShouldProcess("$gitName <$gitEmail>", "Set git identity")) {
     git config --global user.name "$gitName"
     git config --global user.email "$gitEmail"
     Write-Host "  Set: $gitName <$gitEmail>" -ForegroundColor Green
     # Save identity so profile.ps1 detects it on next run
-    $identityFile = Join-Path $env:USERPROFILE ".dev-env" "config" "identity.json"
     $null = New-Item -ItemType Directory -Path (Split-Path $identityFile -Parent) -Force
     @{ git = @{ name = $gitName; email = $gitEmail } } | ConvertTo-Json | Set-Content $identityFile -Encoding UTF8
     Write-Host "  Saved → ~/.dev-env/config/identity.json" -ForegroundColor DarkCyan
-} elseif ($WhatIf) {
-    Write-Host "  [WHATIF] Would set: $gitName <$gitEmail>" -ForegroundColor DarkCyan
 } else {
     $current = git config --global user.name 2>$null
     $currentEmail = git config --global user.email 2>$null
@@ -248,11 +242,10 @@ if ($currentAutocrlf -eq "input") {
     Write-Host "  OK  core.autocrlf = input" -ForegroundColor Green
 } else {
     Write-Host "  CHG core.autocrlf = $($currentAutocrlf ?? 'not set') → input" -ForegroundColor Yellow
-    if ($Force) {
+    if ($PSCmdlet.ShouldProcess("core.autocrlf=input", "Set git autocrlf")) {
         git config --global core.autocrlf input
         Write-Host "  Set core.autocrlf = input" -ForegroundColor DarkCyan
     }
-    if ($WhatIf) { Write-Host "  [WHATIF] Would set core.autocrlf = input" -ForegroundColor DarkCyan }
 }
 
 Write-Host ""
