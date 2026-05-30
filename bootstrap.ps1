@@ -330,18 +330,30 @@ if ($tools.git -ne $null) {
     Write-Host "  remote source ready, proceeding with phase 40" -ForegroundColor DarkGray
 
     # ═══ PHASE 40 — PROFILE (remote) ═══
+    # Minimal inline profile detection (no local scripts available)
     Write-Host ""
     Write-Host ">>> PHASE 40 — PROFILE & IDENTITY (remote)" -ForegroundColor Cyan
-    try {
-        $profileUrl = "$RepoRoot/scripts/40-profile.ps1"
-        Write-Host "  irm $profileUrl | iex" -ForegroundColor DarkGray
-        $profileScript = irm $profileUrl 2>&1
-        # Fix $PSScriptRoot for remote execution
-        $profileScript = $profileScript -replace '\$PSScriptRoot', "'$RepoRoot/scripts'"
-        if ($profileScript) { Invoke-Expression ($profileScript -join "`n") }
-    } catch {
-        Write-Host "  Remote profile failed: $_" -ForegroundColor Red
+    $configDir = Join-Path $env:USERPROFILE ".dev-env\config"
+    if (Test-Path "$configDir\profile.json") {
+        $ProfileName = (Get-Content "$configDir\profile.json" -Raw | ConvertFrom-Json).profile
+        Write-Host "  Profile: $ProfileName (saved)" -ForegroundColor Green
+    } else {
+        # Simple auto-detect
+        if ($cs.PartOfDomain -and $env:USERDOMAIN -ne "WORKGROUP") {
+            $ProfileName = "work"
+        } elseif ($osInfo.caption -match "Server") {
+            $ProfileName = "server"
+        } elseif ($cs.Manufacturer -match "VMware|VirtualBox" -or $cs.Model -match "Virtual") {
+            $ProfileName = "lab"
+        } elseif ($corp.proxy) {
+            $ProfileName = "work"
+        } else {
+            $ProfileName = "home"
+        }
+        Write-Host "  Profile: $ProfileName (auto-detected)" -ForegroundColor Green
     }
+    Write-Host ""
+    Write-Host ">>> 40 — profile-identity OK (remote)" -ForegroundColor Green
 
     # ═══ PHASE 50 — SETUP (remote, dry-run only) ═══
     if ($WhatIf -and $ProfileName) {
