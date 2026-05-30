@@ -97,13 +97,38 @@ if ($hasPwsh) {
     }
 }
 
-# RUN — verify
+# RUN — verify (check PATH + direct paths)
+$pwshPaths = @(
+    "$env:ProgramFiles\PowerShell\7\pwsh.exe",
+    "${env:ProgramFiles(x86)}\PowerShell\7\pwsh.exe",
+    "$env:LOCALAPPDATA\Microsoft\WindowsApps\pwsh.exe"
+)
+$pwshFound = $null
+# Refresh PATH from registry after MSI install
+try {
+    $regPath = "Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session Manager\Environment"
+    $newPath = (Get-ItemProperty -Path $regPath -Name PATH -ErrorAction SilentlyContinue).PATH
+    if ($newPath) { $env:PATH = "$env:PATH;$newPath" }
+} catch {}
+# Try Get-Command first
 $pwshCmd2 = $null
 try { $pwshCmd2 = Get-Command pwsh -ErrorAction Stop } catch {}
 if ($null -ne $pwshCmd2) {
-    Write-Host "  RUN: pwsh verified OK" -ForegroundColor Green
+    $pwshFound = $pwshCmd2.Source
+    Write-Host "  RUN: pwsh verified OK ($pwshFound)" -ForegroundColor Green
 } else {
-    Write-Host "  RUN: pwsh not yet available — refresh PATH or reopen terminal" -ForegroundColor Yellow
+    # Try direct paths
+    foreach ($p in $pwshPaths) {
+        if (Test-Path $p) { $pwshFound = $p; break }
+    }
+    if ($pwshFound) {
+        Write-Host "  RUN: pwsh found at $pwshFound" -ForegroundColor Green
+        # Add to PATH for this session
+        $pwshDir = Split-Path $pwshFound -Parent
+        $env:PATH = "$pwshDir;$env:PATH"
+    } else {
+        Write-Host "  RUN: pwsh not found — may need reboot" -ForegroundColor Yellow
+    }
 }
 
 # ═══ TOOL: Windows Terminal — check→recommend→try→run ═══════════
@@ -202,9 +227,8 @@ Write-Host "╔═════════════════════�
 Write-Host "║  FALLBACK COMPLETE                       ║" -ForegroundColor Green
 Write-Host "╚══════════════════════════════════════════╝" -ForegroundColor Green
 
-# Final check
-$pwshFinal = $null
-try { $pwshFinal = Get-Command pwsh -ErrorAction Stop } catch {}
+# Final check (use $pwshFound from earlier if available)
+$pwshFinal = if ($pwshFound) { $pwshFound } else { $null; try { (Get-Command pwsh -ErrorAction Stop).Source } catch { $null } }
 $missing = @()
 if ($null -eq $pwshFinal) { $missing += "PowerShell 7" }
 $wtFinal = $null; try { $wtFinal = Get-Command wt -ErrorAction Stop } catch {}
@@ -219,7 +243,8 @@ if ($missing.Count -eq 0) {
     Write-Host ""
     # Auto-launch pwsh with bootstrap
     try {
-        Start-Process pwsh -ArgumentList "-NoProfile -NoLogo -Command `"irm $BootstrapUrl | iex; Write-Host 'Press any key...'; `$null = `$Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')`"" -Wait
+        $pwshExe2 = if (Test-Path $pwshFinal) { $pwshFinal } else { "pwsh" }
+        Start-Process $pwshExe2 -ArgumentList "-NoProfile -NoLogo -Command `"irm $BootstrapUrl | iex; Write-Host 'Press any key...'; `$null = `$Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')`"" -Wait
     } catch {
         Write-Host "  Auto-launch failed — run manually:" -ForegroundColor Red
         Write-Host "    pwsh -NoProfile -Command `"irm $BootstrapUrl | iex`"" -ForegroundColor Cyan
@@ -228,7 +253,8 @@ if ($missing.Count -eq 0) {
     Write-Host ""
     Write-Host "  pwsh is ready! Launching main bootstrap:" -ForegroundColor Green
     try {
-        Start-Process pwsh -ArgumentList "-NoProfile -NoLogo -Command `"irm $BootstrapUrl | iex; Write-Host 'Press any key...'; `$null = `$Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')`"" -Wait
+        $pwshExe = if (Test-Path $pwshFinal) { $pwshFinal } else { "pwsh" }
+        Start-Process $pwshExe -ArgumentList "-NoProfile -NoLogo -Command `"irm $BootstrapUrl | iex; Write-Host 'Press any key...'; `$null = `$Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')`"" -Wait
     } catch {
         Write-Host "  Auto-launch failed — run manually:" -ForegroundColor Red
         Write-Host "    pwsh -NoProfile -Command `"irm $BootstrapUrl | iex`"" -ForegroundColor Cyan
