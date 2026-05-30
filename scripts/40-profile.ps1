@@ -192,6 +192,6 @@ Write-Host "  Package  : $($ProfileData.packageManager ?? 'manual')" -Foreground
 
 Write-Host ""
 Write-Host ">>> 40 — profile-identity OK" -ForegroundColor Green
-Write-Host "  profile: $ProfileName, identity: $identitySource, proceeding with phase 50" -ForegroundColor DarkGray
+Write-Host "  profile: $ProfileName, identity: $identitySource, proceeding with phase 40" -ForegroundColor DarkGray
 
 Write-Host "  Use / Pouzij:  scripts/50-setup-$ProfileName.ps1 -WhatIf" -ForegroundColor Cyan

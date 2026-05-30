@@ -34,15 +34,15 @@ WHAT HAPPENS:
     → 1. DETECT (self-contained, no dependencies)
     → 2. REPORT (JSON → stdout + ~/.dev-env/)
     → 3. CLONE (git clone -b master → ~/.dev-env/repo/)
-    → 4. PROFILE (scripts/profile.ps1 → home|work|lab)
+    → 4. PROFILE (scripts/40-profile.ps1 → home|work|lab)
          → 3-sekční výstup: SYSTEM / USER / IDENTITIES
          → Identita: saved > git-config > placeholder
-    → 5. SETUP DRY-RUN (když -WhatIf: auto-chain do setup-<profile>.ps1 -WhatIf)
+    → 5. SETUP DRY-RUN (když -WhatIf: auto-chain do 50-setup-<profile>.ps1 -WhatIf)
 
   AFTER CLONE — user can run:
-    → scripts/setup-<profile>.ps1 [-WhatIf|-Force]
-    → scripts/repair.ps1          [-WhatIf|-Force]
-    → scripts/test.ps1            (exit 0=pass, 1=fail)
+    → scripts/50-setup-<profile>.ps1 [-WhatIf|-Force]
+    → scripts/60-repair.ps1          [-WhatIf|-Force]
+    → scripts/70-test.ps1            (exit 0=pass, 1=fail)
     → scripts/link-configs.ps1    [-WhatIf|-Force]
     → menu/menu.ps1               (interactive)
 ```
@@ -58,7 +58,7 @@ USER runs: irm <gist> | iex  (nebo s $env:DEV_ENV_WHATIF='1')
   │   → >>> DRY-RUN MODE
   │   → detect proběhne normálně (report se uloží)
   │   → profile běží s -WhatIf (neukládá se)
-  │   → auto-chain: setup-<profile>.ps1 -WhatIf
+  │   → auto-chain: 50-setup-<profile>.ps1 -WhatIf
   │
   ├─ ~/.dev-env/ DOESN'T EXIST?
   │   → status: 🔴 new
@@ -80,7 +80,7 @@ USER runs: irm <gist> | iex  (nebo s $env:DEV_ENV_WHATIF='1')
   │   ├─ repo/ bez .git        → Broken repo — smaže a git clone -b master
   │   └─ repo/ neexistuje      → git clone -b master
   │
-  └─ PROFILE (scripts/profile.ps1):
+  └─ PROFILE (scripts/40-profile.ps1):
       ├─ domain-joined ≠ WORKGROUP          → 🏢 work
       ├─ manufacturer = VMware|VirtualBox   → 🧪 lab
       ├─ proxy present, no domain           → 🏢 work (VPN?)
@@ -105,8 +105,8 @@ irm https://gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/raw/boots
 
 # 3. Setup
 cd ~/.dev-env/repo
-./scripts/setup-home.ps1 -WhatIf    (review)
-./scripts/setup-home.ps1 -Force     (apply)
+./scripts/50-setup-home.ps1 -WhatIf    (review)
+./scripts/50-setup-home.ps1 -Force     (apply)
 ./scripts/repair.ps1 -Force
 ./scripts/test.ps1
 ```
@@ -130,7 +130,7 @@ cd ~/.dev-env/repo
   irm <gist> | iex
   # Will show 🟠 os-changed
   cd ~/.dev-env/repo
-  ./scripts/setup-home.ps1 -Force
+  ./scripts/50-setup-home.ps1 -Force
   ./scripts/repair.ps1 -Force
   ./scripts/link-configs.ps1 -Force
   ./scripts/test.ps1
@@ -190,7 +190,7 @@ Report JSON (from `~/.dev-env/report-*.json` or stdout):
 │     → detect → report → clone → profile                 │
 │                                                         │
 │  2. SETUP                                               │
-│     User: setup-<profile>.ps1 -Force                    │
+│     User: 50-setup-<profile>.ps1 -Force                    │
 │     AI: "I'll install these packages, create folders..."│
 │     → winget/brew/apt → dirs → symlinks → git identity  │
 │                                                         │
@@ -334,9 +334,9 @@ Do THIS in order:
 2. QUICK SUMMARY — one sentence. Example: "🔴 Nový stroj H11 (Windows 11, build 26200, WORKGROUP). Git, Node, Python, VS Code nalezeny."
 3. ISSUES — check `path.errors` array. List each error in plain language.
 4. NEXT STEP — based on status, tell user exactly one command to run:
-   - "new" → "Spusť: cd ~/.dev-env/repo && ./scripts/setup-home.ps1 -WhatIf"
+   - "new" → "Spusť: cd ~/.dev-env/repo && ./scripts/50-setup-home.ps1 -WhatIf"
    - "same" → "Vše v pořádku. Můžeš spustit: ./menu/menu.ps1"
-   - "os-changed" → "Reinstal detekován. Spusť: ./scripts/setup-home.ps1 -Force"
+   - "os-changed" → "Reinstal detekován. Spusť: ./scripts/50-setup-home.ps1 -Force"
    - "tools-changed" → "Nová verze nástrojů. Spusť: ./scripts/test.ps1"
 
 RULES:
@@ -351,7 +351,7 @@ RULES:
 ### For AI: "User asks 'what's wrong with my environment?'"
 
 ```
-Read the report and `scripts/test.ps1` output. Categorize issues:
+Read the report and `scripts/70-test.ps1` output. Categorize issues:
 
 🔴 CRITICAL (fix immediately):
   - HOME not set → security risk, some tools break
@@ -368,8 +368,8 @@ Read the report and `scripts/test.ps1` output. Categorize issues:
   - OS build changed (Windows Update)
 
 For each issue, suggest the EXACT repair command:
-  scripts/repair.ps1 -WhatIf  (preview)
-  scripts/repair.ps1 -Force   (apply)
+  scripts/60-repair.ps1 -WhatIf  (preview)
+  scripts/60-repair.ps1 -Force   (apply)
 ```
 
 ### For AI: "User asks 'help me set up a new PC'"
@@ -386,7 +386,7 @@ Response template:
 2. "Send me the JSON output or paste it here."
 3. [After receiving report] "Your profile is {home|work|lab}. Here's your setup plan:"
 4. List commands with explanations
-5. "Start with: cd ~/.dev-env/repo && ./scripts/setup-{profile}.ps1 -WhatIf"
+5. "Start with: cd ~/.dev-env/repo && ./scripts/50-setup-{profile}.ps1 -WhatIf"
 ```
 
 ---

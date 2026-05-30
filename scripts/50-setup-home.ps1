@@ -59,7 +59,22 @@ foreach ($d in $dirs) {
 # 3. Packages by category / balíčky podle kategorií
 Write-Host "5.3 Packages by category / balíčky" -ForegroundColor Cyan
 
-# Winget package ID mapping
+# Tool detection: PATH first, winget second
+function Test-ToolInstalled {
+    param([string]$ToolName, [string]$WingetId)
+    # Try PATH first (works for built-in tools like curl, and CLI tools)
+    $cmd = $null
+    try { $cmd = Get-Command $ToolName -ErrorAction Stop } catch {}
+    if ($cmd) { return $true }
+    # Fall back to winget
+    if ($WingetId) {
+        $installed = winget list --id $WingetId 2>$null | Select-String -SimpleMatch $WingetId
+        if ($installed) { return $true }
+    }
+    return $false
+}
+
+# Winget package ID mapping (for winget install fallback)
 $wingetMap = @{
     "wt"       = "Microsoft.WindowsTerminal"
     "pwsh"     = "Microsoft.PowerShell"
@@ -124,14 +139,9 @@ foreach ($catName in $categories.Keys) {
     
     foreach ($tool in $cat.tools) {
         $pkgId = $wingetMap[$tool]
-        if (-not $pkgId) { 
-            Write-Host "    ⚠  $tool — no winget mapping, skip" -ForegroundColor DarkYellow
-            continue 
-        }
-        
-        $installed = winget list --id $pkgId 2>$null | Select-String -SimpleMatch $pkgId
-        if ($installed) {
-            Write-Host "    ✅  $tool ($pkgId)" -ForegroundColor Green
+        $detected = Test-ToolInstalled -ToolName $tool -WingetId $pkgId
+        if ($detected) {
+            Write-Host "    ✅  $tool ($(if ($pkgId) { $pkgId } else { 'built-in' }))" -ForegroundColor Green
         } else {
             Write-Host "    ❌  $tool ($pkgId)" -ForegroundColor Yellow
             $allOk = $false
@@ -150,24 +160,22 @@ foreach ($catName in $categories.Keys) {
 # AI optional: deepseek
 Write-Host ""
 Write-Host "  🤖  AI (optional) — deepseek" -ForegroundColor DarkGray
-$dsId = $wingetMap["deepseek"]
-$dsInstalled = winget list --id $dsId 2>$null | Select-String -SimpleMatch $dsId
+$dsInstalled = Test-ToolInstalled -ToolName "deepseek" -WingetId $wingetMap["deepseek"]
 if ($dsInstalled) {
-    Write-Host "    ✅  deepseek ($dsId)" -ForegroundColor Green
+    Write-Host "    ✅  deepseek" -ForegroundColor Green
 } else {
-    Write-Host "    ⬚  deepseek ($dsId) — optional, run manually if wanted" -ForegroundColor DarkGray
+    Write-Host "    ⬚  deepseek — optional, run manually if wanted" -ForegroundColor DarkGray
 }
 
 # Editors optional: code, nvim
 Write-Host ""
 Write-Host "  📝  EDITORS (optional) — code, nvim" -ForegroundColor DarkGray
 foreach ($opt in @("code", "nvim")) {
-    $optId = $wingetMap[$opt]
-    $optInstalled = winget list --id $optId 2>$null | Select-String -SimpleMatch $optId
+    $optInstalled = Test-ToolInstalled -ToolName $opt -WingetId $wingetMap[$opt]
     if ($optInstalled) {
-        Write-Host "    ✅  $opt ($optId)" -ForegroundColor Green
+        Write-Host "    ✅  $opt" -ForegroundColor Green
     } else {
-        Write-Host "    ⬚  $opt ($optId) — optional" -ForegroundColor DarkGray
+        Write-Host "    ⬚  $opt — optional" -ForegroundColor DarkGray
     }
 }
 
@@ -175,24 +183,22 @@ foreach ($opt in @("code", "nvim")) {
 Write-Host ""
 Write-Host "  🔧  PROJECT (optional) — gh, node, python, docker" -ForegroundColor DarkGray
 foreach ($opt in @("gh", "node", "python", "docker")) {
-    $optId = $wingetMap[$opt]
-    $optInstalled = winget list --id $optId 2>$null | Select-String -SimpleMatch $optId
+    $optInstalled = Test-ToolInstalled -ToolName $opt -WingetId $wingetMap[$opt]
     if ($optInstalled) {
-        Write-Host "    ✅  $opt ($optId)" -ForegroundColor Green
+        Write-Host "    ✅  $opt" -ForegroundColor Green
     } else {
-        Write-Host "    ⬚  $opt ($optId) — optional" -ForegroundColor DarkGray
+        Write-Host "    ⬚  $opt — optional" -ForegroundColor DarkGray
     }
 }
 
 # Utils optional: starship
 Write-Host ""
 Write-Host "  📦  UTILS (optional) — starship" -ForegroundColor DarkGray
-$stId = $wingetMap["starship"]
-$stInstalled = winget list --id $stId 2>$null | Select-String -SimpleMatch $stId
+$stInstalled = Test-ToolInstalled -ToolName "starship" -WingetId $wingetMap["starship"]
 if ($stInstalled) {
-    Write-Host "    ✅  starship ($stId)" -ForegroundColor Green
+    Write-Host "    ✅  starship" -ForegroundColor Green
 } else {
-    Write-Host "    ⬚  starship ($stId) — optional" -ForegroundColor DarkGray
+    Write-Host "    ⬚  starship — optional" -ForegroundColor DarkGray
 }
 
 # 4. Symlink configs / konfigy

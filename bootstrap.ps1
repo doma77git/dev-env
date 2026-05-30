@@ -23,7 +23,6 @@ if ($WhatIf) {
 $ErrorActionPreference = "Continue"
 $ScriptsDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 if (-not $ScriptsDir -or $ScriptsDir -eq '.') {
-    # Running from gist (irm | iex) — determine from repo clone or remote
     $ScriptsDir = Join-Path $env:USERPROFILE ".dev-env/repo/scripts"
 }
 
@@ -41,7 +40,6 @@ function Invoke-Phase {
     Write-Host ""
     Write-Host ">>> Loading phase: $Name ..." -ForegroundColor DarkCyan
     try {
-        # Run in a clean scope — each phase gets its own environment
         & $Path -Force:$Force -WhatIf:$WhatIf
         return $true
     } catch {
@@ -131,7 +129,6 @@ if (Test-Path $phase30) {
             git clone -b master $RepoUrl $RepoDir 2>$null
         }
     }
-    # Update ScriptsDir to point to cloned repo
     if (Test-Path "$RepoDir/scripts") {
         $ScriptsDir = "$RepoDir/scripts"
     }
@@ -160,13 +157,11 @@ if (Test-Path $phase50) {
         Write-Host ">>> PHASE 50 — PACKAGE SETUP ($profileName) — DRY RUN" -ForegroundColor Magenta
         & $phase50 -WhatIf
     } else {
-        # Always show dry-run first, then ask for confirmation
         Write-Host ""
         Write-Host ">>> PHASE 50 — PACKAGE SETUP ($profileName)" -ForegroundColor Green
         Write-Host "  Showing what would change (dry-run):" -ForegroundColor Magenta
         & $phase50 -WhatIf
 
-        # Confirm before applying
         $confirmScript = Join-Path $ScriptsDir "Confirm-Action.ps1"
         if (Test-Path $confirmScript) { . $confirmScript }
         if (Get-Command Confirm-Action -ErrorAction SilentlyContinue) {
@@ -194,7 +189,7 @@ if (Test-Path $phase60) {
         Write-Host ">>> PHASE 60 — ENVIRONMENT REPAIR — DRY RUN" -ForegroundColor Magenta
         & $phase60 -WhatIf
     } else {
-        & $phase60 -WhatIf  # Show what would be fixed
+        & $phase60 -WhatIf
         $confirmScript = Join-Path $ScriptsDir "Confirm-Action.ps1"
         if (Test-Path $confirmScript) { . $confirmScript }
         if (Get-Command Confirm-Action -ErrorAction SilentlyContinue) {
