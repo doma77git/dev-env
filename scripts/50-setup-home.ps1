@@ -55,30 +55,147 @@ foreach ($d in $dirs) {
     }
 }
 
-# 3. Winget / balíčky
-Write-Host "5.3 Packages / balíčky (winget)" -ForegroundColor Cyan
-$packages = @(
-    "Git.Git",
-    "Microsoft.PowerShell",
-    "Microsoft.WindowsTerminal",
-    "Microsoft.VisualStudioCode",
-    "Python.Python.3.12",
-    "OpenJS.NodeJS.LTS",
-    "GitHub.cli",
-    "Docker.DockerDesktop",
-    "7zip.7zip",
-    "Neovim.Neovim",
-    "Starship.Starship"
-)
-foreach ($pkg in $packages) {
-    $installed = winget list --id $pkg 2>$null | Select-String -SimpleMatch $pkg
-    if ($installed) {
-        Write-Host "  OK  $pkg" -ForegroundColor Green
-    } else {
-        Write-Host "  MISS $pkg" -ForegroundColor Yellow
-        if ($Force)  { Write-Host "  Installing $pkg ..."; winget install --id $pkg --accept-source-agreements }
-        if ($WhatIf) { Write-Host "  [WHATIF] Would install $pkg" -ForegroundColor DarkCyan }
+# 3. Packages by category / balíčky podle kategorií
+Write-Host "5.3 Packages by category / balíčky" -ForegroundColor Cyan
+
+# Winget package ID mapping
+$wingetMap = @{
+    "wt"       = "Microsoft.WindowsTerminal"
+    "pwsh"     = "Microsoft.PowerShell"
+    "chrome"   = "Google.Chrome"
+    "reasonix" = "Reasonix.Reasonix"
+    "deepseek" = "DeepSeek.DeepSeek"
+    "notepad++"= "Notepad++.Notepad++"
+    "code"     = "Microsoft.VisualStudioCode"
+    "nvim"     = "Neovim.Neovim"
+    "git"      = "Git.Git"
+    "gh"       = "GitHub.cli"
+    "node"     = "OpenJS.NodeJS.LTS"
+    "python"   = "Python.Python.3.12"
+    "docker"   = "Docker.DockerDesktop"
+    "curl"     = "curl"
+    "7z"       = "7zip.7zip"
+    "starship" = "Starship.Starship"
+}
+
+# Category definitions
+$categories = [ordered]@{
+    "🖥️  TERMINAL" = @{
+        tools = @("wt", "pwsh")
+        priority = "core"
+        desc = "Minimální kostra — vždy navrženo"
     }
+    "🌐  BROWSER"  = @{
+        tools = @("chrome")
+        priority = "recommended"
+        desc = "Doporučený prohlížeč"
+    }
+    "🤖  AI"       = @{
+        tools = @("reasonix")
+        priority = "recommended"
+        desc = "AI nástroje — Reasonix doporučen"
+    }
+    "📝  EDITORS"  = @{
+        tools = @("notepad++")
+        priority = "recommended"
+        desc = "Editory — Notepad++ doporučen"
+    }
+    "🔧  PROJECT"  = @{
+        tools = @("git")
+        priority = "recommended"
+        desc = "Projektová manipulace — git doporučen"
+    }
+    "📦  UTILS"    = @{
+        tools = @("curl", "7z")
+        priority = "recommended"
+        desc = "Utility"
+    }
+}
+
+# Process each category
+foreach ($catName in $categories.Keys) {
+    $cat = $categories[$catName]
+    Write-Host ""
+    Write-Host "  $catName — $($cat.desc)" -ForegroundColor DarkCyan
+    
+    $allOk = $true
+    $missing = @()
+    
+    foreach ($tool in $cat.tools) {
+        $pkgId = $wingetMap[$tool]
+        if (-not $pkgId) { 
+            Write-Host "    ⚠  $tool — no winget mapping, skip" -ForegroundColor DarkYellow
+            continue 
+        }
+        
+        $installed = winget list --id $pkgId 2>$null | Select-String -SimpleMatch $pkgId
+        if ($installed) {
+            Write-Host "    ✅  $tool ($pkgId)" -ForegroundColor Green
+        } else {
+            Write-Host "    ❌  $tool ($pkgId)" -ForegroundColor Yellow
+            $allOk = $false
+            $missing += $pkgId
+        }
+    }
+    
+    if (-not $allOk) {
+        if ($Force) {
+            foreach ($pkgId in $missing) {
+                Write-Host "    Installing $pkgId ..." -ForegroundColor Yellow
+                winget install --id $pkgId --accept-source-agreements 2>&1 | Out-Null
+            }
+        } elseif ($WhatIf) {
+            Write-Host "    [WHATIF] Would install: $($missing -join ', ')" -ForegroundColor DarkCyan
+        }
+    }
+}
+
+# AI optional: deepseek
+Write-Host ""
+Write-Host "  🤖  AI (optional) — deepseek" -ForegroundColor DarkGray
+$dsId = $wingetMap["deepseek"]
+$dsInstalled = winget list --id $dsId 2>$null | Select-String -SimpleMatch $dsId
+if ($dsInstalled) {
+    Write-Host "    ✅  deepseek ($dsId)" -ForegroundColor Green
+} else {
+    Write-Host "    ⬚  deepseek ($dsId) — optional, run manually if wanted" -ForegroundColor DarkGray
+}
+
+# Editors optional: code, nvim
+Write-Host ""
+Write-Host "  📝  EDITORS (optional) — code, nvim" -ForegroundColor DarkGray
+foreach ($opt in @("code", "nvim")) {
+    $optId = $wingetMap[$opt]
+    $optInstalled = winget list --id $optId 2>$null | Select-String -SimpleMatch $optId
+    if ($optInstalled) {
+        Write-Host "    ✅  $opt ($optId)" -ForegroundColor Green
+    } else {
+        Write-Host "    ⬚  $opt ($optId) — optional" -ForegroundColor DarkGray
+    }
+}
+
+# Project optional: gh, node, python, docker
+Write-Host ""
+Write-Host "  🔧  PROJECT (optional) — gh, node, python, docker" -ForegroundColor DarkGray
+foreach ($opt in @("gh", "node", "python", "docker")) {
+    $optId = $wingetMap[$opt]
+    $optInstalled = winget list --id $optId 2>$null | Select-String -SimpleMatch $optId
+    if ($optInstalled) {
+        Write-Host "    ✅  $opt ($optId)" -ForegroundColor Green
+    } else {
+        Write-Host "    ⬚  $opt ($optId) — optional" -ForegroundColor DarkGray
+    }
+}
+
+# Utils optional: starship
+Write-Host ""
+Write-Host "  📦  UTILS (optional) — starship" -ForegroundColor DarkGray
+$stId = $wingetMap["starship"]
+$stInstalled = winget list --id $stId 2>$null | Select-String -SimpleMatch $stId
+if ($stInstalled) {
+    Write-Host "    ✅  starship ($stId)" -ForegroundColor Green
+} else {
+    Write-Host "    ⬚  starship ($stId) — optional" -ForegroundColor DarkGray
 }
 
 # 4. Symlink configs / konfigy
