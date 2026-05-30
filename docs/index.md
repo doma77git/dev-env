@@ -8,17 +8,20 @@
 ## ⚠️ Než začneš
 
 - **PowerShell 7+** — `bootstrap.ps1` vyžaduje PS7. Na PS5 spusť `00-bootstrap-fallback.ps1` (nainstaluje pwsh+wt+git)
-- **Git** — pro clone repa. Bez něj detekce funguje, ale `scripts/` nebudou dostupné.
 - **-WhatIf před -Force** — všechny skripty podporují suchý běh. Vždycky nejdřív `-WhatIf`.
-- **Firemní stroj** — `winget` a `irm` můžou být blokované. Bootstrap to detekuje → `work` profil.
+- **Firemní stroj** — `safeMode` se automaticky detekuje. Nikdy nic neinstaluje bez potvrzení.
+- **Server / headless** — detekuje se podle OS caption. safeMode = true.
 
 ---
 
 ## ⚡ Quickstart / Rychlý start
 
 ```powershell
-# Windows
+# Windows PS7 — doporučeno
 irm https://gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/raw/bootstrap.ps1 | iex
+
+# Windows PS5 — fallback (nainstaluje pwsh+git, spawnuje PS7)
+powershell -NoProfile -Command "irm https://gist.githubusercontent.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/raw/00-bootstrap-fallback.ps1?v=1 | iex"
 ```
 
 ```bash
@@ -32,31 +35,34 @@ curl -fsSL https://gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5/ra
 
 ```
 irm | iex
-  ├─ PS7? ──ano──▶ PHASE 00 → 10 → 20 → 30 → 40 → 50
-  └─ PS5? ──────▶ 00-bootstrap-fallback.ps1 → pwsh+wt+git → pwsh → hlavní pipeline
+  ├─ PS7 ──▶ 00→01→02→10→15→20→30→40→50→60→70
+  └─ PS5 ──▶ 00-bootstrap-fallback → pwsh+git ↗
 ```
 
 | Fáze | Co se děje |
 |---|---|
-| **00. Bootstrap** | Entry point, gist URL |
-| **10. Detect** | Fingerprint stroje, OS, nástroje, PATH, OneDrive, firemní signály |
-| **20. Report** | JSON → `~/.dev-env/` — pro AI i člověka |
-| **30. Clone** | `git clone` repa → `~/.dev-env/repo/` |
-| **40. Profile** | Auto-detekce: 🏠 home / 🏢 work / 🧪 lab |
-| **50. Setup** | Instalace balíčků, vytvoření složek, symlinky |
-| **60. Repair** | Opravy PATH, HOME, OneDrive |
-| **70. Test** | Validace — 14 kontrol — pass/fail |
-| **Menu** | Interaktivní rozcestník |
+| **00. Bootstrap** | gist URL, hand-off |
+| **01. Profile** | Corp/home/server/lab → safeMode |
+| **02. Core check** | PS version, shell, terminal, installer (PS7 loop) |
+| **10. Detect** | Fingerprint, OS, 13 tools, PATH, OneDrive, corporate |
+| **15. Report** | JSON → `~/.dev-env/` — for AI + human |
+| **20. Clone** | git clone / remote fallback |
+| **30. Profile** | Home/work/lab/server identity, GitHub, SSH |
+| **40. Essentials** | 🖥️ wt + pwsh (confirm 5s) |
+| **50. Categories** | 🌐🤖📝🔧📦 recommended + optional |
+| **60. Repair** | PATH duplicates, HOME, OneDrive |
+| **70. Test** | 14 checks → pass/fail → exit code |
 
 ---
 
 ## 👤 Profily
 
-| Profil | Spouští se když |
-|---|---|
-| 🏠 **home** | Domácí PC — `WORKGROUP`, žádný proxy, plná práva |
-| 🏢 **work** | Firemní PC — doménový účet, proxy, omezení |
-| 🧪 **lab** | Testovací VM — VMware/VirtualBox, experimenty |
+| Profil | Spouští se když | safeMode |
+|---|---|---|
+| 🏠 **home** | WORKGROUP, žádný proxy, ne VM | ❌ |
+| 🏢 **work** | Doména (≠ WORKGROUP), proxy | ✅ |
+| 🧪 **lab** | VMware/VirtualBox / Virtuální model | ❌ |
+| 🖳 **server** | OS caption "Server" | ✅ |
 
 ---
 
@@ -77,31 +83,21 @@ irm | iex
     │   ├── 50-setup-work.ps1  ← firemní
     │   ├── 60-repair.ps1      ← opravy
     │   ├── 70-test.ps1        ← validace
+    │   ├── Confirm-Action.ps1 ← potvrzovací dialog (5s timeout)
     │   └── link-configs.ps1   ← symlinky konfigů
-    ├── profiles/           ← JSON definice profilů
-    ├── configs/            ← verzované konfigy
-    ├── ai/                 ← pro AI agenty
-    ├── menu/menu.ps1       ← interaktivní menu
-    └── docs/               ← dokumentace
+    ├── profiles/             ← JSON definice profilů
+    ├── configs/              ← verzované konfigy
+    ├── ai/                   ← pro AI agenty
+    ├── menu/menu.ps1         ← interaktivní menu
+    └── docs/                 ← dokumentace
 ```
 
 ```
 Doporučená struktura projektů:
 ~/dev/projects/
-├── osobni/                 ← osobní projekty (git: jan@novak.cz)
-├── ppg/                    ← firemní projekty (git: jan.novak@ppg.com)
-└── lab/                    ← experimenty (git: jan+lab@novak.cz)
-
-~/Documents/
-├── downloads/
-│   ├── _temp/              ← dočasné (mazat)
-│   └── keep/               ← trvalé
-└── docs/
-    ├── navody/             ← návody, reference
-    ├── architektura/       ← UML, BPMN diagramy
-    └── faktury/            ← faktury, smlouvy
-
-~/Documents/chat-exports/   ← AI konverzace, exporty
+├── osobni/                 ← osobní projekty
+├── ppg/                    ← firemní projekty
+└── lab/                    ← experimenty
 ```
 
 ---
@@ -111,10 +107,11 @@ Doporučená struktura projektů:
 | Skript | Spuštění | Co dělá |
 |---|---|---|
 | `scripts/40-profile.ps1` | `./40-profile.ps1` | Detekce profilu |
-| `scripts/50-setup-home.ps1` | `./50-setup-home.ps1 -WhatIf` | Instalace pro doma |
-| `scripts/60-repair.ps1` | `./60-repair.ps1 -WhatIf` | Opravy |
+| `scripts/50-setup-home.ps1` | `./50-setup-home.ps1 -WhatIf` | Instalace kategorie (🖥️🌐🤖📝🔧📦) |
+| `scripts/60-repair.ps1` | `./60-repair.ps1 -WhatIf` | Opravy PATH, HOME, OneDrive |
 | `scripts/70-test.ps1` | `./70-test.ps1` | 14 kontrol |
 | `scripts/link-configs.ps1` | `./link-configs.ps1 -WhatIf` | Symlinky konfigů |
+| `scripts/Confirm-Action.ps1` | dot-source | Interaktivní potvrzení (5s timeout) |
 | `menu/menu.ps1` | `./menu.ps1` | Interaktivní menu |
 
 ---
@@ -144,16 +141,6 @@ Doporučená struktura projektů:
 
 ---
 
-## 🟠 TODO
-
-| Co | Stav |
-|---|---|
-| `scripts/50-setup-work.ps1` | Firemní instalace (proxy, VPN) |
-| `scripts/50-setup-lab.ps1` | Testovací VM (WSL, scoop) |
-| Deep merge v 40-profile.ps1 | ✅ Hotovo |
-
----
-
 ## 🧠 Pro AI agenty
 
 - **Manifest**: [`manifest.json`](../manifest.json) — autoritativní popis celého projektu
@@ -162,4 +149,4 @@ Doporučená struktura projektů:
 
 ---
 
-*dev-env v1.0.0 · 2026-05-29 · [manifest.json](../manifest.json)*
+*dev-env v1.0.0 · 2026-05-30 · [manifest.json](../manifest.json)*

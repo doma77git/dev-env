@@ -5,7 +5,7 @@
   "project": "dev-env",
   "version": "1.0.0",
   "created": "2026-05-29",
-  "updated": "2026-05-29",
+  "updated": "2026-05-30",
   "entrypoint": "index.html",
   "authority": {
     "source": "https://github.com/doma77git/dev-env",
@@ -15,21 +15,27 @@
 
   "manifest": {
     "bootstrap": [
-      { "file": "bootstrap.ps1", "role": "Windows entry point", "runtime": "irm <gist>/bootstrap.ps1 | iex" },
+      { "file": "bootstrap.ps1", "role": "Windows PS7 entry — main pipeline", "runtime": "irm <gist>/bootstrap.ps1 | iex" },
+      { "file": "00-bootstrap-fallback.ps1", "role": "Windows PS5 entry — installs pwsh+winget+git, spawns pwsh", "runtime": "powershell -c \"irm <gist>/00-bootstrap-fallback.ps1 | iex\"" },
       { "file": "bootstrap.sh",  "role": "Linux/WSL entry point",  "runtime": "curl -fsSL <gist>/bootstrap.sh | bash" }
     ],
     "profiles": [
       { "file": "profiles/base.json", "role": "Shared defaults — all profiles inherit", "extends": null },
       { "file": "profiles/home.json", "role": "Home PC — unrestricted",              "extends": "base" },
-      { "file": "profiles/work.json", "role": "Corporate PC — proxy, restricted",     "extends": "base" },
-      { "file": "profiles/lab.json",  "role": "Lab VM — experimental, WSL",           "extends": "base" }
+      { "file": "profiles/work.json", "role": "Corporate PC — proxy, safe mode",     "extends": "base" },
+      { "file": "profiles/lab.json",  "role": "Lab VM — experimental, WSL",           "extends": "base" },
+      { "file": "profiles/server.json", "role": "Server — headless, no GUI, safe mode", "extends": "base" }
     ],
     "scripts": [
-      { "file": "scripts/profile.ps1",      "role": "Profile detection (home/work/lab)", "runtime": "scripts/profile.ps1 [-Set home|work|lab]" },
-      { "file": "scripts/setup-home.ps1",   "role": "Home PC setup — winget + dirs + git", "runtime": "scripts/setup-home.ps1 [-WhatIf|-Force]" },
-      { "file": "scripts/repair.ps1",       "role": "Repair common issues",             "runtime": "scripts/repair.ps1 [-WhatIf|-Force]" },
-      { "file": "scripts/test.ps1",         "role": "Validate environment",             "runtime": "scripts/test.ps1  (exit 0=pass)" },
-      { "file": "scripts/link-configs.ps1", "role": "Symlink configs from repo to ~/",  "runtime": "scripts/link-configs.ps1 [-WhatIf|-Force]" }
+      { "file": "scripts/00-bootstrap-fallback.ps1", "role": "PS5 fallback — direct download pwsh/winget/git when missing", "runtime": "irm <gist>/00-bootstrap-fallback.ps1 | iex (in PS5)" },
+      { "file": "scripts/40-profile.ps1",      "role": "Profile detection (home/work/lab/server)", "runtime": "scripts/40-profile.ps1 [-Set home|work|lab|server]" },
+      { "file": "scripts/50-setup-home.ps1",   "role": "Home PC setup — categories (🖥️🌐🤖📝🔧📦)", "runtime": "scripts/50-setup-home.ps1 [-WhatIf|-Force]" },
+      { "file": "scripts/50-setup-lab.ps1",    "role": "Lab VM setup — scoop, WSL",                  "runtime": "scripts/50-setup-lab.ps1 [-WhatIf|-Force]" },
+      { "file": "scripts/50-setup-work.ps1",   "role": "Corporate setup — proxy, VPN, manual",       "runtime": "scripts/50-setup-work.ps1 [-WhatIf|-Force]" },
+      { "file": "scripts/60-repair.ps1",       "role": "Repair common issues (PATH, HOME, OneDrive)", "runtime": "scripts/60-repair.ps1 [-WhatIf|-Force]" },
+      { "file": "scripts/70-test.ps1",         "role": "Validate environment — 14 checks",             "runtime": "scripts/70-test.ps1 (exit 0=pass)" },
+      { "file": "scripts/Confirm-Action.ps1",  "role": "Interactive confirm with 5s timeout, headless detection", "runtime": ". ./scripts/Confirm-Action.ps1" },
+      { "file": "scripts/link-configs.ps1",    "role": "Symlink configs from repo to ~/",              "runtime": "scripts/link-configs.ps1 [-WhatIf|-Force]" }
     ],
     "configs": [
       { "file": "configs/git/.gitconfig",   "role": "Shared Git config — symlink to ~/.gitconfig" },
@@ -41,8 +47,8 @@
     ],
     "docs": [
       { "file": "docs/index.md",     "role": "Landing page — GitHub Pages" },
-      { "file": "docs/architecture.md", "role": "Architecture — how it works (TODO)" },
-      { "file": "docs/workflows.md", "role": "Workflows — step-by-step guides (TODO)" }
+      { "file": "docs/architecture.md", "role": "Architecture — pipeline flow, layers" },
+      { "file": "docs/workflows.md", "role": "Workflows — step-by-step guides" }
     ],
     "menu": [
       { "file": "menu/menu.ps1", "role": "Interactive terminal menu — all actions" }
@@ -54,27 +60,31 @@
 
   "runtime": {
     "entry": "bootstrap.ps1",
-    "requires": ["pwsh 7+ (Windows)", "bash 4+ (Linux/WSL)"],
+    "requires": ["pwsh 7+ (Windows)", "bash 4+ (Linux/WSL)", "irm (Windows) or curl (Linux)"],
     "flow": [
-      "1. irm <gist> | iex  → bootstrap.ps1",
-      "2. Detect: fingerprint → OS → tools → PATH → OneDrive → corporate",
-      "3. Report: ~/.dev-env/report-<date>.json  +  machines.json",
-      "4. Clone: git clone → ~/.dev-env/repo/",
-      "5. Profile: scripts/profile.ps1 → home | work | lab",
-      "6. Setup: scripts/setup-<profile>.ps1 -WhatIf → -Force",
-      "7. Repair: scripts/repair.ps1 -WhatIf → -Force",
-      "8. Test: scripts/test.ps1 → pass/fail",
-      "9. Menu: menu/menu.ps1 → interactive"
+      "00 — BOOTSTRAP: gist URL → hand-off",
+      "01 — PROFILE: corporate/home/server/lab detect → safeMode",
+      "02 — CORE CHECK: PS version, shell, terminal, installer (PS5→install loop)",
+      "10 — DETECT: fingerprint → OS → tools → PATH → OneDrive → corporate",
+      "15 — REPORT: JSON → ~/.dev-env/report-*.json + machines.json",
+      "20 — CLONE: git clone/pull or remote fallback (raw.githubusercontent.com)",
+      "30 — PROFILE IDENTITY: git identity, GitHub, SSH (scripts/40-profile.ps1)",
+      "40 — ESSENTIALS: wt + pwsh (scripts/50-setup-*.ps1)",
+      "50 — CATEGORIES: browser, ai, editors, project, utils",
+      "60 — REPAIR: PATH, HOME, OneDrive, SSH (scripts/60-repair.ps1)",
+      "70 — TEST: 14 checks → pass/fail → exit code (scripts/70-test.ps1)"
     ]
   },
 
   "knowledge": {
     "concepts": [
-      { "term": "bootstrap",  "def": "Self-contained detect script — first thing that runs. Never needs git." },
-      { "term": "fingerprint", "def": "SHA256(hostname|username|domain) — unique machine+user identifier." },
-      { "term": "profile",    "def": "home | work | lab — auto-detected by domain, proxy, manufacturer." },
-      { "term": "machines.json", "def": "Append-only history of all detections — never synced, never committed." },
-      { "term": "WhatIf",     "def": "PowerShell convention — dry run, shows what WOULD happen without changing anything." }
+      { "term": "bootstrap",    "def": "Self-contained detect script — first thing that runs. Never needs git." },
+      { "term": "fingerprint",  "def": "SHA256(hostname|username|domain) — unique machine+user identifier." },
+      { "term": "profile",      "def": "home | work | lab | server — auto-detected by domain, proxy, manufacturer, OS caption." },
+      { "term": "safeMode",     "def": "Corporate/server profile — no automatic installs, always dry-run, confirm each item." },
+      { "term": "machines.json","def": "Append-only history of all detections — never synced, never committed." },
+      { "term": "WhatIf",       "def": "PowerShell convention — dry run, shows what WOULD happen without changing anything." },
+      { "term": "Confirm-Action","def": "5s timeout interactive prompt. Headless → auto-skip. Used in phases 40-60." }
     ],
     "secrets": [
       "~/.ssh/             — SSH keys (never commit)",
@@ -83,7 +93,7 @@
       "~/.npmrc, ~/.aws/   — Registry & cloud credentials (never commit)"
     ],
     "sync": [
-      "Gist → never auto-sync (manual copy when bootstrap logic changes)",
+      "Gist → manual copy when bootstrap logic changes (gh gist edit)",
       "Repo → git push/pull (manual or menu)",
       "~/.dev-env/repo/ → git pull (bootstrap or menu)",
       "machines.json → LOCAL ONLY — one file per machine, never shared"
@@ -92,32 +102,35 @@
 
   "workflows": {
     "new-machine": [
-      "irm <gist> | iex",
-      "profile auto-detected",
-      "setup-<profile>.ps1 -WhatIf → review → -Force",
-      "repair.ps1 -WhatIf → review → -Force",
-      "test.ps1 → should be all green"
+      "PS7: irm <gist>/bootstrap.ps1 | iex",
+      "PS5: powershell -c \"irm <gist>/00-bootstrap-fallback.ps1 | iex\"",
+      "profile auto-detected (home/work/lab/server)",
+      "core check → PS7 loop if needed",
+      "detect → report → clone",
+      "50-setup-<profile>.ps1 -WhatIf → review → -Force",
+      "60-repair.ps1 -WhatIf → review → -Force",
+      "70-test.ps1 → should be all green"
     ],
     "existing-machine": [
-      "irm <gist> | iex  (detect → same/changed)",
+      "irm <gist>/bootstrap.ps1 | iex (detect → same/changed)",
       "menu.ps1 → pull repo",
-      "repair.ps1 -WhatIf → review",
-      "test.ps1"
+      "60-repair.ps1 -WhatIf → review",
+      "70-test.ps1"
     ],
     "after-reinstall": [
-      "irm <gist> | iex  (detect → os-changed)",
-      "setup-<profile>.ps1 -Force  (reinstall all)",
-      "repair.ps1 -Force",
-      "test.ps1"
+      "irm <gist>/bootstrap.ps1 | iex (detect → os-changed)",
+      "50-setup-<profile>.ps1 -Force (reinstall all)",
+      "60-repair.ps1 -Force",
+      "70-test.ps1"
     ]
   },
 
   "todo": [
-    { "item": "setup-work.ps1", "status": "pending", "desc": "Corporate PC setup — proxy, VPN, restricted packages" },
-    { "item": "setup-lab.ps1",  "status": "pending", "desc": "Lab VM setup — WSL, scoop, experimental tools" },
-    { "item": "deep merge in profile.ps1", "status": "pending", "desc": "Shallow merge currently; nested keys from base not preserved" },
-    { "item": "Git autocrlf=input", "status": "pending", "desc": "Apply core.autocrlf=input to avoid CRLF warnings" },
-    { "item": "Setup alias for git push", "status": "pending", "desc": "GitHub push blocked — email privacy. Fix at github.com/settings/emails" }
+    { "item": "50-setup-home split into 40-essentials + 50-categories", "status": "pending", "desc": "Currently all in one script. Split essentials (wt+pwsh) from categories." },
+    { "item": "Pipeline JSON completed list includes 01,02,15", "status": "pending", "desc": "Phase tracking updates needed for new phase numbers." },
+    { "item": "Server profile practical content (services, roles)", "status": "pending", "desc": "server.json exists but no setup script yet." },
+    { "item": "Git autocrlf=input", "status": "done", "desc": "Applied via 50-setup-*.ps1" },
+    { "item": "PS5 fallback integrated into pipeline Phase 02", "status": "done", "desc": "No longer separate — core loop in bootstrap.ps1" }
   ],
 
   "pages": {
