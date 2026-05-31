@@ -7,6 +7,24 @@
 [CmdletBinding(SupportsShouldProcess)]
 param([switch]$Force)
 
+# ─── Logger ─────────────────────────────────────────────────────
+$logDir = Join-Path $env:USERPROFILE ".dev-env" "logs"
+if (-not (Test-Path $logDir)) { New-Item -Path $logDir -ItemType Directory -Force | Out-Null }
+$logFile = Join-Path $logDir "setup-server-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
+function Write-Log { param($M,$L="INFO"); Add-Content $logFile "[$(Get-Date -Format HH:mm:ss)] [$L] $M" -Encoding UTF8 }
+Write-Log "50-setup-server started" "INFO"
+
+# ─── SafeMode check ──────────────────────────────────────────
+$profileCfgPath = Join-Path $env:USERPROFILE ".dev-env" "config" "profile.json"
+if (Test-Path $profileCfgPath) {
+    try { $pCfg = Get-Content $profileCfgPath -Raw | ConvertFrom-Json
+        if ($pCfg.safeMode -and -not $Force) {
+            Write-Host "❌ SAFE MODE ACTIVE — installation blocked" -ForegroundColor Red
+            Write-Log "SafeMode blocked installation" "WARN"; exit 1
+        }
+    } catch { Write-Log "SafeMode check failed: $_" "WARN" }
+}
+
 $profile = if (Test-Path (Join-Path $PSScriptRoot ".." "profiles" "server.json")) {
     Get-Content (Join-Path $PSScriptRoot ".." "profiles" "server.json") -Raw | ConvertFrom-Json
 } else {

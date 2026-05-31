@@ -11,6 +11,24 @@ param([switch]$Force)
 
 $profile = Get-Content (Join-Path $PSScriptRoot ".." "profiles" "lab.json") -Raw | ConvertFrom-Json
 
+# ─── Logger ─────────────────────────────────────────────────────
+$logDir = Join-Path $env:USERPROFILE ".dev-env" "logs"
+if (-not (Test-Path $logDir)) { New-Item -Path $logDir -ItemType Directory -Force | Out-Null }
+$logFile = Join-Path $logDir "setup-lab-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
+function Write-Log { param($M,$L="INFO"); Add-Content -Path $logFile -Value "[$(Get-Date -Format HH:mm:ss)] [$L] $M" -Encoding UTF8 }
+Write-Log "50-setup-lab started" "INFO"
+
+# ─── SafeMode check ──────────────────────────────────────────
+$profileCfgPath = Join-Path $env:USERPROFILE ".dev-env" "config" "profile.json"
+if (Test-Path $profileCfgPath) {
+    try { $pCfg = Get-Content $profileCfgPath -Raw | ConvertFrom-Json
+        if ($pCfg.safeMode -and -not $Force) {
+            Write-Host "❌ SAFE MODE ACTIVE — installation blocked" -ForegroundColor Red
+            Write-Log "SafeMode blocked installation" "WARN"; exit 1
+        }
+    } catch { Write-Log "SafeMode check failed: $_" "WARN" }
+}
+
 Write-Host ">>> PHASE 50 — PACKAGE SETUP (lab) / INSTALACE VM" -ForegroundColor Green
 Write-Host ""
 
