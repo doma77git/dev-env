@@ -8,6 +8,7 @@
 param(
     [switch]$WhatIf,
     [switch]$Quick,
+    [switch]$ValidateOnly,
     [switch]$Force
 )
 
@@ -41,8 +42,12 @@ if ($Quick)  { $menuArgs += "-TimeoutSeconds"; $menuArgs += "2" }
 if ($Force)  { $menuArgs += "-Force" }
 
 Write-Host "  🚀 Spouštím pipeline ..." -ForegroundColor Cyan
-if ($Quick -or $Force) {
-    & ".\scripts\20-install-software.ps1" -IncludeRequired -IncludeRecommended -Force:@($Force -or $Quick)[0] 2>&1
+if ($ValidateOnly) {
+    Write-Host "  🔍 Validate-only: spouštím testy ..." -ForegroundColor Cyan
+    & ".\scripts\70-test.ps1" 2>&1
+    & ".\scripts\99-validate-bootstrap.ps1" -Quick 2>&1
+} elseif ($Quick -or $Force) {
+    & ".\scripts\20-install-software.ps1" -IncludeRequired -IncludeRecommended -Force 2>&1
     & ".\scripts\70-test.ps1" 2>&1
 } else {
     & ".\scripts\00-menu.ps1" @menuArgs 2>&1

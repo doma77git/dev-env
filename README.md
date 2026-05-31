@@ -3,6 +3,9 @@
 [![CI](https://github.com/doma77git/dev-env/actions/workflows/ci.yml/badge.svg)](https://github.com/doma77git/dev-env/actions/workflows/ci.yml)
 [![PowerShell 7+](https://img.shields.io/badge/PowerShell-7+-blue)](https://github.com/PowerShell/PowerShell)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![AI Ready](https://img.shields.io/badge/AI-Ready-purple)](AGENT.md)
+[![Windows](https://img.shields.io/badge/Windows-✅-0078D4)](.)
+[![Linux](https://img.shields.io/badge/Linux-✅-FCC624)](.)
 
 > ⚡ **Jeden řádek pro kompletní vývojářské prostředí**  
 > `irm https://raw.githubusercontent.com/doma77git/dev-env/master/bootstrap.ps1 | iex`
