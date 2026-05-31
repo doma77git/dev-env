@@ -5,6 +5,10 @@
 # RUN:    ./50-setup-home.ps1 -WhatIf
 #         ./50-setup-home.ps1 -IncludeRequired -IncludeRecommended
 #         ./50-setup-home.ps1 -Force
+# INPUT:  -IncludeRequired, -IncludeRecommended, -IncludeOptional, -IncludeDev
+#         -Force (skip confirmations)
+# OUTPUT: Installed packages, git config, symlinks
+#         Preferences saved to ~/.dev-env/software-preferences.json
 # ==============================================================
 [CmdletBinding(SupportsShouldProcess)]
 param(
@@ -16,7 +20,32 @@ param(
 )
 
 $profilePath = Join-Path $PSScriptRoot ".." "profiles" "home.json"
-$profile = Get-Content $profilePath -Raw | ConvertFrom-Json
+$profile = try { Get-Content $profilePath -Raw | ConvertFrom-Json } catch { $null }
+if (-not $profile) { Write-Host "❌ Chyba: home.json nebyl nalezen nebo je poškozený" -ForegroundColor Red; exit 1 }
+
+# ─── Logger ─────────────────────────────────────────────────────
+$logDir = Join-Path $env:USERPROFILE ".dev-env" "logs"
+if (-not (Test-Path $logDir)) { New-Item -Path $logDir -ItemType Directory -Force | Out-Null }
+$logFile = Join-Path $logDir "setup-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
+function Write-Log {
+    param([string]$Message, [string]$Level = "INFO")
+    $ts = Get-Date -Format "HH:mm:ss"
+    Add-Content -Path $logFile -Value "[$ts] [$Level] $Message" -Encoding UTF8
+    switch($Level){ "ERROR"{Write-Host $Message -ForegroundColor Red} "WARN"{Write-Host $Message -ForegroundColor Yellow} default{Write-Host $Message -ForegroundColor DarkGray} }
+}
+Write-Log "50-setup-home started" "INFO"
+
+# ─── SafeMode check ──────────────────────────────────────────
+$profileCfgPath = Join-Path $env:USERPROFILE ".dev-env" "config" "profile.json"
+if (Test-Path $profileCfgPath) {
+    try {
+        $pCfg = Get-Content $profileCfgPath -Raw | ConvertFrom-Json
+        if ($pCfg.safeMode -and -not $Force) {
+            Write-Host "❌ SAFE MODE ACTIVE — auto-install blocked" -ForegroundColor Red
+            Write-Log "SafeMode blocked installation" "WARN"; exit 1
+        }
+    } catch {}
+}
 
 # ─── Software categories (sdílená data s 10-detect.ps1) ──────
 $softwareCategories = [ordered]@{
@@ -32,6 +61,7 @@ $softwareCategories = [ordered]@{
         @{ name = "notepad++";winget = "Notepad++.Notepad++";        desc = "Notepad++ editor" }
         @{ name = "gh";       winget = "GitHub.cli";                 desc = "GitHub CLI" }
         @{ name = "curl";     winget = "curl";                       desc = "cURL" }
+        @{ name = "reasonix";winget = "Reasonix.Reasonix";           desc = "Reasonix AI coding assistant" }
     )
     optional = @(
         @{ name = "nvim";     winget = "Neovim.Neovim";          desc = "Neovim editor" }
@@ -202,7 +232,9 @@ if ($currentAutocrlf -eq "input") {
 Write-Host ""
 Write-Host "  💾  Preference uloženy: $prefFile" -ForegroundColor DarkGray
 Write-Host ""
+Write-Log "50-setup-home complete" "INFO"
 Write-Host ">>> 50 — package-setup (home) OK" -ForegroundColor Green
 if ($Force)   { Write-Host "  packages installed, proceeding with phase 60" -ForegroundColor DarkGray }
 if ($WhatIfPreference) { Write-Host "  dry-run complete" -ForegroundColor DarkGray }
+Write-Host "  📝  Log: $logFile" -ForegroundColor DarkGray
 Write-Host "=== DONE ===" -ForegroundColor Green
