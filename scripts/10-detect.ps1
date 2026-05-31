@@ -47,7 +47,7 @@ $fingerprint = -join (([Security.Cryptography.SHA256]::Create().ComputeHash(
 $machinesFile = Join-Path $envDir "machines.json"
 $machines = @()
 if (Test-Path $machinesFile) {
-    try { $machines = @(Get-Content $machinesFile -Raw | ConvertFrom-Json) } catch {}
+    try { $machines = @(Get-Content $machinesFile -Raw | ConvertFrom-Json) } catch { Write-Log "Cannot parse machines.json" "WARN" }
     $machines = @($machines)
 }
 $previous = $machines | Where-Object { $_.fingerprint -eq $fingerprint } | Select-Object -Last 1

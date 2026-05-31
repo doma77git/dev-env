@@ -7,7 +7,7 @@ name: Validate AGENTS.md
 on:
   push:
     branches: [master, main]
-    paths: ['AGENT.md', 'scripts/*.ps1']
+    paths: ['AGENTS.md', 'scripts/*.ps1']
   pull_request:
     branches: [master, main]
 
@@ -39,7 +39,7 @@ jobs:
       - name: Extract phase scripts from AGENTS.md
         shell: pwsh
         run: |
-          $content = Get-Content AGENT.md -Raw
+          $content = Get-Content AGENTS.md -Raw
           # Find phase table in AGENTS.md
           $table = $content | Select-String -Pattern '(?<=\| Phase \| Script \| Purpose \|).*?(?=\n\n)' -AllMatches
           $mdPhases = @()
@@ -79,9 +79,9 @@ jobs:
         shell: pwsh
         run: |
           $errors = @()
-          $content = Get-Content AGENT.md -Raw
+          $content = Get-Content AGENTS.md -Raw
           $table = $content | Select-String -Pattern '(?<=\| Phase \| Script \| Purpose \|).*?(?=\n\n)' -AllMatches
-          if (-not $table.Matches) { Write-Host "No phase table found in AGENT.md"; exit 1 }
+          if (-not $table.Matches) { Write-Host "No phase table found in AGENTS.md"; exit 1 }
           
           $mdScripts = @()
           foreach ($m in $table.Matches) {
@@ -95,15 +95,15 @@ jobs:
           
           # Check scripts in MD but not on disk
           foreach ($s in $mdScripts) {
-            if ($s -notin $actualScripts) { $errors += "AGENT.md mentions '$s' but file not found in scripts/" }
+            if ($s -notin $actualScripts) { $errors += "AGENTS.md mentions '$s' but file not found in scripts/" }
           }
           # Check scripts on disk but not in MD
           foreach ($s in $actualScripts) {
-            if ($s -notin $mdScripts) { $errors += "Script '$s' exists but is not listed in AGENT.md phase table" }
+            if ($s -notin $mdScripts) { $errors += "Script '$s' exists but is not listed in AGENTS.md phase table" }
           }
           
           if ($errors.Count -gt 0) {
             foreach ($e in $errors) { Write-Host "::warning::$e" }
             exit 1
           }
-          Write-Host "✅ AGENT.md phase list matches scripts/ directory" -ForegroundColor Green
+          Write-Host "✅ AGENTS.md phase list matches scripts/ directory" -ForegroundColor Green
