@@ -5,8 +5,7 @@
 [CmdletBinding(SupportsShouldProcess)]
 param(
     [int]$TimeoutSeconds = 10,
-    [string]$DefaultChoice = "S",
-    [switch]$WhatIf   # Jen zobrazí, neinstaluje
+    [string]$DefaultChoice = "S"
 )
 
 $ErrorActionPreference = "Stop"
@@ -149,7 +148,7 @@ function Get-CategoryStatus {
 # ─── Instalace jedné aplikace ─────────────────────────────────
 function Install-App {
     param($App, [string]$CategoryKey)
-    if ($WhatIf) { Write-Host "  ⚡  [WhatIf] Instaloval bych: $($App.name) ($($App.winget))" -ForegroundColor Cyan; return $true }
+    if ($WhatIfPreference) { Write-Host "  ⚡  [WhatIf] Instaloval bych: $($App.name) ($($App.winget))" -ForegroundColor Cyan; return $true }
     
     $action = "Install $($App.name) ($($App.winget))"
     if (-not $PSCmdlet.ShouldProcess($action, "winget install")) { return $false }
