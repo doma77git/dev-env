@@ -1,9 +1,12 @@
 #!/usr/bin/env pwsh
 # === scripts/40-profile.ps1 ===================================
-# ROLE:   Detect active profile (home / work / lab)
-#         Detekce aktivního profilu
-# INPUT:  profiles/*.json  +  env detection
-# OUTPUT: $ProfileName, $ProfileData  +  uloží do ~/.dev-env/config/
+# ROLE:   Detect active profile (home / work / lab / server)
+#         Detekce aktivního profilu podle domény, OS, VM, proxy
+# RUN:    ./40-profile.ps1               (auto-detect)
+#         ./40-profile.ps1 -Set home     (manual override)
+#         ./40-profile.ps1 -WhatIf       (suchý běh — neukládá)
+# INPUT:  profiles/*.json  +  env detection (domain, OS, manufacturer, proxy)
+# OUTPUT: $ProfileName, $ProfileData  +  uloží do ~/.dev-env/config/profile.json
 # ==============================================================
 param([switch]$Force, [string]$Set, [switch]$WhatIf)
 
@@ -101,9 +104,17 @@ function Merge-Deep {
     return $result
 }
 if ($profiles[$ProfileName] -and $ProfileName -ne "base") {
-    $ProfileData = Merge-Deep -Base $profiles["base"] -Override $profiles[$ProfileName]
-} else {
+    try {
+        $ProfileData = Merge-Deep -Base $profiles["base"] -Override $profiles[$ProfileName]
+    } catch {
+        Write-Host "  ⚠ Merge failed, using base profile: $_" -ForegroundColor Yellow
+        $ProfileData = if ($profiles["base"]) { $profiles["base"].PSObject.Copy() } else { $null }
+    }
+} elseif ($profiles["base"]) {
     $ProfileData = $profiles["base"].PSObject.Copy()
+} else {
+    Write-Host "  ❌ No base profile found" -ForegroundColor Red
+    $ProfileData = [pscustomobject]@{ identity = [pscustomobject]@{ git = [pscustomobject]@{ name = "User"; email = "user@localhost" } }; safeMode = $false }
 }
 
 # 4b. Identity detection — přednost má saved > git config > profile default
