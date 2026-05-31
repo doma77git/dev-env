@@ -78,6 +78,7 @@ $softwareCategories = [ordered]@{
         @{ name = "notepad++";winget = "Notepad++.Notepad++";        test = "Get-Command notepad++ -EA 0" }
         @{ name = "gh";       winget = "GitHub.cli";                 test = "Get-Command gh -EA 0" }
         @{ name = "curl";     winget = "curl";                       test = "Get-Command curl -EA 0" }
+        @{ name = "reasonix";winget = "Reasonix.Reasonix";           test = "Get-Command reasonix -EA 0" }
     )
     optional = @(
         @{ name = "nvim";     winget = "Neovim.Neovim";          test = "Get-Command nvim -EA 0" }
@@ -95,19 +96,52 @@ $softwareCategories = [ordered]@{
 
 # Detekce stavu nainstalování pro každý balíček
 function Get-SoftwareByCategory {
+    # Known paths pro appky ne v PATH (sdíleno s 00-menu.ps1, 20-install-software.ps1)
+    $knownPaths = @{
+        "code"      = @("${env:ProgramFiles}\Microsoft VS Code\Code.exe", "${env:LOCALAPPDATA}\Programs\Microsoft VS Code\Code.exe")
+        "7z"        = @("${env:ProgramFiles}\7-Zip\7z.exe", "${env:ProgramFiles(x86)}\7-Zip\7z.exe")
+        "chrome"    = @("${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe")
+        "notepad++" = @("${env:ProgramFiles}\Notepad++\notepad++.exe", "${env:ProgramFiles(x86)}\Notepad++\notepad++.exe")
+        "nvim"      = @("${env:ProgramFiles}\Neovim\bin\nvim.exe", "${env:LOCALAPPDATA}\Neovim\bin\nvim.exe")
+        "docker"    = @("${env:ProgramFiles}\Docker\Docker\resources\bin\docker.exe")
+        "starship"  = @("${env:ProgramFiles}\starship\bin\starship.exe")
+        "vs2022"    = @("${env:ProgramFiles}\Microsoft Visual Studio\2022\Community\Common7\IDE\devenv.exe")
+        "rider"     = @("${env:ProgramFiles}\JetBrains\JetBrains Rider\bin\rider64.exe", "${env:LOCALAPPDATA}\JetBrains\JetBrains Rider\bin\rider64.exe")
+        "postman"   = @("${env:LOCALAPPDATA}\Postman\Postman.exe")
+        "wt"        = @("${env:LOCALAPPDATA}\Microsoft\WindowsApps\wt.exe")
+        "gh"        = @("${env:ProgramFiles}\GitHub CLI\gh.exe")
+        "reasonix"  = @("${env:LOCALAPPDATA}\Programs\Reasonix\reasonix.exe")
+    }
+    
     $inventory = [ordered]@{}
     foreach ($cat in $softwareCategories.Keys) {
         $items = @()
         foreach ($pkg in $softwareCategories[$cat]) {
+            # 1. Get-Command (PATH)
             $cmd = Get-Command $pkg.name -ErrorAction SilentlyContinue | Select-Object -First 1
             $installed = $cmd -ne $null
+            $foundPath = if ($cmd) { $cmd.Source } else { $null }
+            
+            # 2. Fallback: Program Files (pro appky ne v PATH)
+            if (-not $installed -and $knownPaths.ContainsKey($pkg.name)) {
+                foreach ($p in $knownPaths[$pkg.name]) {
+                    if (Test-Path $p) { $installed = $true; $foundPath = $p; break }
+                }
+            }
+            
+            # 3. Fallback: registry Uninstall
+            if (-not $installed) {
+                $uninstall = @("HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*", "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*")
+                foreach ($key in $uninstall) { if (Test-Path $key) { $found = Get-ItemProperty $key -EA 0 | Where-Object { $_.DisplayName -like "*$($pkg.name)*" -and $_.DisplayName } | Select-Object -First 1; if ($found) { $installed = $true; break } } }
+            }
+            
             $ver = if ($installed) { try { (& $pkg.name --version 2>&1 | Select-Object -First 1) -join ' ' } catch { "?" } } else { $null }
             $items += [ordered]@{
                 name      = $pkg.name
                 winget    = $pkg.winget
                 installed = $installed
                 version   = $ver
-                path      = if ($cmd) { $cmd.Source } else { $null }
+                path      = $foundPath
             }
         }
         $inventory[$cat] = [ordered]@{

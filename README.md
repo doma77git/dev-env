@@ -169,7 +169,7 @@ irm | iex
 |---|---|---|
 | **00. Core check** | `scripts/00-core-check.ps1` | PS7, git, connectivity — exit 1 při chybě, nikdy neinstaluje |
 | **30. Clone** | `scripts/30-clone.ps1` | git clone/pull (vždy běží = read-only) |
-| **10. Detect** | `scripts/10-detect.ps1` | Fingerprint, OS, 19 nástrojů (kategorie), PATH, OneDrive |
+| **10. Detect** | `scripts/10-detect.ps1` | Fingerprint, OS, 18 nástrojů (kategorie: 3+7+3+5), PATH, OneDrive |
 | **20. Report** | `scripts/20-report.ps1` | JSON → `~/.dev-env/report-*.json` + `machines.json` |
 | **40. Profile** | `scripts/40-profile.ps1` | home / work / lab / server, git identity, GitHub, SSH |
 | **50. Setup** | `scripts/50-setup-{profile}.ps1` | Balíčky, složky, git config, autocrlf (ShouldProcess) |
