@@ -1,0 +1,70 @@
+# === .github/workflows/full-test.yml ============================
+# ROLE:   Full test matrix — multiple OS + PS versions
+#         Spouští se ručně (workflow_dispatch) nebo plánovaně
+# ==============================================================
+name: Full Test Matrix
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'   # každé pondělí 6:00 UTC
+  workflow_dispatch:        # ruční spuštění
+
+jobs:
+  test-windows:
+    name: ${{ matrix.os }} PS${{ matrix.ps_version }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, windows-2025]
+        ps_version: [7.2, 7.4]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use PowerShell ${{ matrix.ps_version }}
+        shell: pwsh
+        run: |
+          $url = "https://github.com/PowerShell/PowerShell/releases/download/v${{ matrix.ps_version }}.0/PowerShell-${{ matrix.ps_version }}.0-win-x64.msi"
+          Write-Host "Downloading PowerShell ${{ matrix.ps_version }} from $url"
+          Invoke-WebRequest -Uri $url -OutFile "$env:TEMP\pwsh.msi"
+          Start-Process msiexec.exe -Wait -ArgumentList "/i $env:TEMP\pwsh.msi /quiet /norestart"
+          Write-Host "PowerShell ${{ matrix.ps_version }} installed"
+
+      - name: Phase 00 — Core Check
+        shell: pwsh
+        run: ./scripts/00-core-check.ps1
+        continue-on-error: true
+
+      - name: Setup CI environment
+        shell: pwsh
+        run: |
+          New-Item -Path "$env:USERPROFILE\.dev-env" -ItemType Directory -Force | Out-Null
+          git config --global user.name "CI Runner"
+          git config --global user.email "ci@dev-env.test"
+
+      - name: Phase 10 — Detect (WhatIf)
+        shell: pwsh
+        run: ./scripts/10-detect.ps1
+
+      - name: Phase 30 — Clone
+        shell: pwsh
+        run: ./scripts/30-clone.ps1
+        continue-on-error: true
+
+      - name: Phase 60 — Repair (WhatIf)
+        shell: pwsh
+        run: ./scripts/60-repair.ps1 -WhatIf -SkipBackup
+
+      - name: Phase 70 — All Tests
+        shell: pwsh
+        run: ./scripts/70-test.ps1
+        continue-on-error: true
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-${{ matrix.os }}-ps${{ matrix.ps_version }}
+          path: |
+            ~/.dev-env/logs/
+            ~/.dev-env/*.json
