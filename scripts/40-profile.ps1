@@ -151,7 +151,15 @@ if ($savedIdentity -and $savedIdentity.git.email) {
 # 5. Save / uložit
 if (-not $WhatIfPreference) {
     $null = New-Item -ItemType Directory -Path $configDir -Force
-    @{ profile = $ProfileName; detectedAt = (Get-Date -Format "yyyy-MM-ddTHH:mm:ss") } | ConvertTo-Json | Set-Content "$configDir/profile.json" -Encoding UTF8
+    $now = Get-Date -Format "yyyy-MM-ddTHH:mm:ss"
+    @{ profile = $ProfileName; detectedAt = $now } | ConvertTo-Json | Set-Content "$configDir/profile.json" -Encoding UTF8
+    
+    # History append
+    $historyPath = Join-Path $configDir "profile-history.json"
+    $history = if (Test-Path $historyPath) { try { Get-Content $historyPath -Raw | ConvertFrom-Json } catch { @() } } else { @() }
+    if ($history -isnot [array]) { $history = @($history) }
+    $history += @{ timestamp = $now; profile = $ProfileName; source = $identitySource; hostname = $env:COMPUTERNAME }
+    $history | ConvertTo-Json -Depth 4 | Out-File $historyPath -Encoding UTF8
 } else {
     Write-Host "  [WHATIF] Would save profile: $ProfileName → ~/.dev-env/config/profile.json" -ForegroundColor DarkCyan
 }
