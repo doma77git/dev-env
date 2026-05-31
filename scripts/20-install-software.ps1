@@ -2,8 +2,11 @@
 # === scripts/20-install-software.ps1 ===========================
 # ROLE:   Install missing software via winget by category
 #         Instalace chybějícího SW přes winget podle kategorií
-# RUN:    ./20-install-software.ps1 -IncludeRequired -IncludeRecommended
-#         ./20-install-software.ps1 -Force
+# RUN:    ./20-install-software.ps1 -IncludeRequired [-Force] [-Confirm]
+# INPUT:  -IncludeRequired, -IncludeRecommended, -IncludeOptional, -IncludeDev
+#         -Force (skip all confirmations), -Confirm (ask per package)
+# OUTPUT: Exit code 0=all installed, 1=some failed
+#         Log in ~/.dev-env/logs/install-*.log
 # ==============================================================
 [CmdletBinding(SupportsShouldProcess)]
 param(
@@ -29,6 +32,21 @@ function Write-Log {
     if (-not $SkipLog) { switch($Level){ "ERROR"{Write-Host $Message -ForegroundColor Red} "WARN"{Write-Host $Message -ForegroundColor Yellow} "OK"{Write-Host $Message -ForegroundColor Green} default{Write-Host $Message -ForegroundColor DarkGray} } }
 }
 Write-Log "20-install-software started" "INFO"
+
+# ─── SafeMode check ──────────────────────────────────────────
+$profilePath = Join-Path $env:USERPROFILE ".dev-env" "config" "profile.json"
+if (Test-Path $profilePath) {
+    try {
+        $profile = Get-Content $profilePath -Raw | ConvertFrom-Json
+        if ($profile.safeMode -and -not $Force) {
+            Write-Host "❌ SAFE MODE ACTIVE ($($profile.type))" -ForegroundColor Red
+            Write-Host "    Auto-install is BLOCKED on this machine." -ForegroundColor Yellow
+            Write-Host "    Use -Force to override or switch profile." -ForegroundColor Yellow
+            Write-Log "SafeMode blocked installation" "WARN"
+            exit 1
+        }
+    } catch { Write-Log "SafeMode check failed: $_" "WARN" }
+}
 
 # ─── Software categories ──────────────────────────────────────
 $Categories = @{
@@ -103,6 +121,14 @@ foreach ($q in $installQueue) {
 }
 
 if ($installQueue.Count -eq 0) { Write-Host "✅ Všechno již nainstalováno" -ForegroundColor Green; exit 0 }
+
+# WhatIf early exit
+if ($WhatIfPreference) {
+    Write-Host "`n[WhatIf] Would install $($installQueue.Count) packages:" -ForegroundColor Cyan
+    foreach ($q in $installQueue) { Write-Host "  - $($q.App.name) ($($q.App.winget)) [$($q.Category)]" -ForegroundColor Yellow }
+    Write-Host "[WhatIf] No changes made. Exiting." -ForegroundColor Cyan
+    exit 0
+}
 
 if (-not $Force) {
     Write-Host "`nPro instalaci použij -Force" -ForegroundColor Yellow; exit 0
