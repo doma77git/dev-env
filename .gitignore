@@ -9,3 +9,5 @@ data/*.json
 Potřebuji vybudovat*.md
 .codewhale/
 .deepseek/
+*.patch
+chat_export_*.md
