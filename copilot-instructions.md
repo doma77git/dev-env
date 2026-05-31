@@ -92,7 +92,7 @@ The canonical pipeline order is: **00 → 30 → 10 → 20 → 40 → 50 → 60 
 | 40 | `40-profile.ps1` | Profile detection + identity + GitHub + SSH + GPG |
 | 50 | `50-setup-{profile}.ps1` | Package install (ShouldProcess, transcript logged) |
 | 60 | `60-repair.ps1` | PATH, HOME, OneDrive, SSH repair (ShouldProcess) |
-| 70 | `70-test.ps1` | 15 validation checks → exit 0=pass, 1=fail |
+| 70 | `70-test.ps1` | 17 validation checks → exit 0=pass, 1=fail |
 
 ### Naming conventions
 
@@ -136,7 +136,7 @@ The canonical pipeline order is: **00 → 30 → 10 → 20 → 40 → 50 → 60 
 │   ├── 50-setup-home.ps1      ← Home PC package install
 │   ├── 50-setup-server.ps1    ← Server minimal toolchain
 │   ├── 60-repair.ps1          ← PATH/HOME/OneDrive/SSH repair
-│   ├── 70-test.ps1            ← 15 validation checks
+│   ├── 70-test.ps1            ← 17 validation checks
 │   ├── Confirm-Action.ps1     ← 10s timeout confirm dialog
 │   ├── link-configs.ps1       ← Symlink configs from repo
 │   └── undo-last.ps1          ← Rollback guidance from transcript

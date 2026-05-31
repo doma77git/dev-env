@@ -41,7 +41,7 @@ bootstrap.ps1 (GIST)
   │
   ├─ 10. DETECT ────────────────────────
   │   scripts/10-detect.ps1
-  │   fingerprint, OS, 13 tools, PATH,
+  │   fingerprint, OS, 18 tools, PATH,
   │   OneDrive, corporate signals
   │
   ├─ 20. REPORT ────────────────────────

@@ -40,7 +40,7 @@ WHAT HAPPENS:
     → 30. CLONE (scripts/30-clone.ps1)
          git clone/pull → ~/.dev-env/repo/ (read-only, vždy běží)
     → 10. DETECT (scripts/10-detect.ps1)
-         fingerprint, OS, 13 tools, PATH, OneDrive, corporate
+         fingerprint, OS, 18 tools, PATH, OneDrive, corporate
     → 20. REPORT (scripts/20-report.ps1)
          JSON → stdout + ~/.dev-env/report-*.json + machines.json
     → 40. PROFILE (scripts/40-profile.ps1), GPG

@@ -3,7 +3,7 @@
 [![CI](https://github.com/doma77git/dev-env/actions/workflows/ci.yml/badge.svg)](https://github.com/doma77git/dev-env/actions/workflows/ci.yml)
 [![PowerShell 7+](https://img.shields.io/badge/PowerShell-7+-blue)](https://github.com/PowerShell/PowerShell)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![AI Ready](https://img.shields.io/badge/AI-Ready-blue?logo=openai&logoColor=white)](AGENT.md)
+[![AI Ready](https://img.shields.io/badge/AI-Ready-blue?logo=openai&logoColor=white)](AGENTS.md)
 [![Windows](https://img.shields.io/badge/Windows-✅-0078D4)](.)
 [![Linux](https://img.shields.io/badge/Linux-✅-FCC624)](.)
 
@@ -52,8 +52,8 @@ flowchart TD
     G --> H
     H --> I[50-setup-home<br>HOME, složky, symlinky]
     I --> J[60-repair<br>PATH, OneDrive, rollback]
-    J --> K[70-test<br>15 testů]
-    K --> L{16/16 testů OK?}
+    J --> K[70-test<br>17 testů]
+    K --> L{17/17 testů OK?}
     L -->|Ano| M[✅ Hotovo]
     L -->|Ne| N[❌ Log v ~/.dev-env/logs/]
 ```
@@ -301,7 +301,7 @@ cd ~/.dev-env/repo
 | `scripts/50-setup-work.ps1` | 🔧 Spustit | Corporate PC — proxy, VPN, manual |
 | `scripts/50-setup-lab.ps1` | 🔧 Spustit | Lab VM — WSL, scoop, experimental |
 | `scripts/60-repair.ps1` | 🔧 Spustit | Opravy PATH, HOME, OneDrive, SSH |
-| `scripts/70-test.ps1` | 🔧 Spustit | 14 kontrol, exit 0 = pass |
+| `scripts/70-test.ps1` | 🔧 Spustit | 17 kontrol, exit 0 = pass |
 | `scripts/link-configs.ps1` | 🔧 Spustit | Symlink konfigů z repa |
 | `configs/*` | 🔧 Spustit | Sdílené konfigy (git, pwsh) |
 | `menu/menu.ps1` | 🔧 Spustit | Interaktivní menu |
