@@ -43,6 +43,20 @@ jobs:
           $actual = Get-ChildItem scripts/*.ps1 | Where-Object { $_.Name -match '^\d\d-' }
           $actual | ForEach-Object { Write-Host $_.Name }
 
+      - name: Validate script headers
+        shell: pwsh
+        run: |
+          $failed = $false
+          foreach ($script in Get-ChildItem scripts/*.ps1) {
+            $header = Get-Content $script.FullName -First 10 -Raw
+            if ($header -notmatch 'ROLE:|RUN:|INPUT:|OUTPUT:') {
+              Write-Host "::warning::❌ $($script.Name) missing header pattern (ROLE:/RUN:/INPUT:/OUTPUT:)"
+              $failed = $true
+            }
+          }
+          if ($failed) { Write-Host "Some scripts missing header pattern"; exit 1 }
+          Write-Host "✅ All script headers valid" -ForegroundColor Green
+
       - name: Compare
         shell: pwsh
         run: |
