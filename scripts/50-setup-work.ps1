@@ -134,7 +134,7 @@ foreach ($d in $dirs) {
 
 # 6. Symlink configs
 Write-Host "5.6 Config symlinks / symlinky" -ForegroundColor Cyan
-& "$PSScriptRoot\link-configs.ps1" -WhatIf:$WhatIf -Force:$Force
+& "$PSScriptRoot\link-configs.ps1" -WhatIf:$WhatIfPreference -Force:$Force
 
 Write-Host ""
 Write-Host ""

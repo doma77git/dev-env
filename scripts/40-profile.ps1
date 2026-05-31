@@ -8,7 +8,8 @@
 # INPUT:  profiles/*.json  +  env detection (domain, OS, manufacturer, proxy)
 # OUTPUT: $ProfileName, $ProfileData  +  uloží do ~/.dev-env/config/profile.json
 # ==============================================================
-param([switch]$Force, [string]$Set, [switch]$WhatIf)
+[CmdletBinding(SupportsShouldProcess)]
+param([switch]$Force, [string]$Set)
 
 $profilesDir = Join-Path $PSScriptRoot ".." "profiles"
 $configDir   = Join-Path $env:USERPROFILE ".dev-env" "config"
@@ -138,7 +139,7 @@ if ($savedIdentity -and $savedIdentity.git.email) {
         $ProfileData.identity.git.email = $gitEmail
         $identitySource = "git-config"
         # Auto-save for future runs
-        if (-not $WhatIf) {
+        if (-not $WhatIfPreference) {
             $null = New-Item -ItemType Directory -Path $configDir -Force
             @{ git = @{ name = $gitName; email = $gitEmail } } | ConvertTo-Json | Set-Content $identityFile -Encoding UTF8
         }
@@ -148,7 +149,7 @@ if ($savedIdentity -and $savedIdentity.git.email) {
 }
 
 # 5. Save / uložit
-if (-not $WhatIf) {
+if (-not $WhatIfPreference) {
     $null = New-Item -ItemType Directory -Path $configDir -Force
     @{ profile = $ProfileName; detectedAt = (Get-Date -Format "yyyy-MM-ddTHH:mm:ss") } | ConvertTo-Json | Set-Content "$configDir/profile.json" -Encoding UTF8
 } else {
