@@ -12,6 +12,18 @@ $ErrorActionPreference = "Continue"
 $RepoUrl  = "https://github.com/doma77git/dev-env"
 $envDir   = Join-Path $env:USERPROFILE ".dev-env"
 
+# ─── Logger ─────────────────────────────────────────────────────
+$logDir = Join-Path $env:USERPROFILE ".dev-env" "logs"
+if (-not (Test-Path $logDir)) { New-Item -Path $logDir -ItemType Directory -Force | Out-Null }
+$detectLogFile = Join-Path $logDir "detect-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
+function Write-Log {
+    param([string]$Message, [string]$Level = "INFO")
+    $ts = Get-Date -Format "HH:mm:ss"
+    $logMsg = "[$ts] [$Level] $Message"
+    Add-Content -Path $detectLogFile -Value $logMsg -Encoding UTF8
+}
+Write-Log "Phase 10 started" "INFO"
+
 Write-Host ""
 Write-Host "╔══════════════════════════════════════════╗" -ForegroundColor Cyan
 Write-Host "║  PHASE 10 — ENVIRONMENT DETECT           ║" -ForegroundColor Cyan
@@ -170,7 +182,8 @@ $oneDrivePaths = @()
 
 # Registry — osobní účet
 foreach ($rp in @("HKCU:\Software\Microsoft\OneDrive\Accounts\Personal",
-                  "HKCU:\Software\Microsoft\OneDrive\Accounts\Business1")) {
+                  "HKCU:\Software\Microsoft\OneDrive\Accounts\Business1",
+                  "HKCU:\Software\Microsoft\OneDrive\Accounts\Business2")) {
     if (Test-Path $rp) {
         $folder = (Get-ItemProperty $rp -ErrorAction SilentlyContinue).UserFolder
         if ($folder) {
@@ -263,7 +276,8 @@ Write-Host "  ─── KFM analýza ──────────────�
 $kfmDetected = $false
 $kfmRegPath = $null
 foreach ($rp in @("HKCU:\Software\Microsoft\OneDrive\Accounts\Personal",
-                  "HKCU:\Software\Microsoft\OneDrive\Accounts\Business1")) {
+                  "HKCU:\Software\Microsoft\OneDrive\Accounts\Business1",
+                  "HKCU:\Software\Microsoft\OneDrive\Accounts\Business2")) {
     if (Test-Path $rp) {
         $kfmValue = (Get-ItemProperty -Path $rp -Name "IsKFMEnabled" -ErrorAction SilentlyContinue).IsKFMEnabled
         if ($kfmValue -eq 1) {
@@ -433,5 +447,7 @@ Write-Host "  fingerprint: $fingerprint, OS: $($osInfo.caption) build $($osInfo.
 # Export report as script-scoped variable for next phase (20-report.ps1)
 $script:DetectReport = $report
 
+Write-Log "Phase 10 complete" "INFO"
+Write-Host "  📝  Log: $detectLogFile" -ForegroundColor DarkGray
 Write-Host ""
 Write-Host ">>> 10 — environment-detect OK" -ForegroundColor Green

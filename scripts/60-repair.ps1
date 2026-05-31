@@ -16,6 +16,26 @@ Write-Host ">>> PHASE 60 — ENVIRONMENT REPAIR / OPRAVY" -ForegroundColor Green
 Write-Host "  🔐  KFM safety: $(if(-not $Force){'ACTIVE (vyžaduje -Force pro KFM opravy)'}else{'VYPNUTO (Force mód)'})" -ForegroundColor DarkGray
 if ($SkipBackup) { Write-Host "  💾  Backup: SKIP (testovací mód)" -ForegroundColor DarkGray }
 
+# ─── Logger ─────────────────────────────────────────────────────
+$logDir = Join-Path $env:USERPROFILE ".dev-env" "logs"
+if (-not (Test-Path $logDir)) { New-Item -Path $logDir -ItemType Directory -Force | Out-Null }
+$logFile = Join-Path $logDir "repair-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
+Add-Content -Path $logFile -Value "# repair log started $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" -Encoding UTF8
+
+function Write-Log {
+    param([string]$Message, [string]$Level = "INFO")
+    $ts = Get-Date -Format "HH:mm:ss"
+    $logMsg = "[$ts] [$Level] $Message"
+    switch ($Level) {
+        "ERROR" { Write-Host $logMsg -ForegroundColor Red }
+        "WARN"  { Write-Host $logMsg -ForegroundColor Yellow }
+        "DEBUG" { Write-Host $logMsg -ForegroundColor DarkGray }
+        default { Write-Host $logMsg -ForegroundColor Gray }
+    }
+    Add-Content -Path $logFile -Value $logMsg -Encoding UTF8
+}
+Write-Log "Phase 60 started, Force=$Force SkipBackup=$SkipBackup" "INFO"
+
 # ─── Invoke-EnvironmentRepair ────────────────────────────────
 # Wrapper: provede opravu, při selhání automatický rollback z backupu
 function Invoke-EnvironmentRepair {
@@ -40,7 +60,7 @@ function Invoke-EnvironmentRepair {
         return $true
     } catch {
         Write-Host " FAIL" -ForegroundColor Red
-        Write-Host "  ❌  $ActionName selhalo: $_" -ForegroundColor Red
+        Write-Log "$ActionName selhalo: $_" "ERROR"
         Write-Host "  🔄  Spouštím automatický rollback ..." -ForegroundColor Yellow
         
         if ($BackupPath -and (Test-Path $BackupPath)) {
@@ -488,6 +508,8 @@ if ($issues -eq 0) {
     if (-not $Force -and -not $WhatIf) { Write-Host "  Run with -WhatIf or -Force / Spust s -WhatIf nebo -Force" -ForegroundColor Cyan }
 }
 Write-Host ""
+Write-Log "Phase 60 complete: $fixes fixes, $issues issues" "INFO"
 Write-Host ">>> 60 — environment-repair OK" -ForegroundColor Green
 if ($fixes -gt 0) { Write-Host "  ✅  $fixes oprav aplikováno" -ForegroundColor Green }
 Write-Host "  issues: $issues, proceeding with phase 70" -ForegroundColor DarkGray
+Write-Host "  📝  Log: $logFile" -ForegroundColor DarkGray
