@@ -174,7 +174,7 @@ irm | iex
 | **40. Profile** | `scripts/40-profile.ps1` | home / work / lab / server, git identity, GitHub, SSH |
 | **50. Setup** | `scripts/50-setup-{profile}.ps1` | Balíčky, složky, git config, autocrlf (ShouldProcess) |
 | **60. Repair** | `scripts/60-repair.ps1` | PATH, HOME, OneDrive, SSH (ShouldProcess) |
-| **70. Test** | `scripts/70-test.ps1` | 14 kontrol — exit 0 = pass |
+| **70. Test** | `scripts/70-test.ps1` | 16 kontrol — exit 0 = pass |
 | **Menu** | `menu/menu.ps1` | Interaktivní rozcestník |
 
 ---
@@ -315,6 +315,9 @@ cd ~/.dev-env/repo
 | 🔩 Repo | [github.com/doma77git/dev-env](https://github.com/doma77git/dev-env) |
 | ⚡ Gist | [gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5](https://gist.github.com/doma77git/2f489d9ce5e7e0ff75b17cbe8011bbb5) |
 | 🌐 Pages | [doma77git.github.io/dev-env](https://doma77git.github.io/dev-env) |
+| 🔒 Security | [`docs/security.md`](docs/security.md) |
+| 🔧 Troubleshooting | [`docs/troubleshooting.md`](docs/troubleshooting.md) |
+| 🤝 Contributing | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
 
 ---
 

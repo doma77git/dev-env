@@ -359,7 +359,7 @@ param([switch]$Force)
 | 40 | `40-profile.ps1` | Profile detection + identity |
 | 50 | `50-setup-home.ps1` | Package install (ShouldProcess, logged) |
 | 60 | `60-repair.ps1` | PATH, HOME, OneDrive repair (ShouldProcess, rollback) |
-| 70 | `70-test.ps1` | 15 validation checks → exit 0=pass, 1=fail |
+| 70 | `70-test.ps1` | 16 validation checks → exit 0=pass, 1=fail |
 
 ---
 
