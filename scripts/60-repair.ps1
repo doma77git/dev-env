@@ -399,22 +399,28 @@ if ($odPath) {
     Write-Host "  ℹ   OneDrive není nainstalován / nastaven" -ForegroundColor DarkGray
 }
 
-# 4.2 Kontrola všech 5 Known Folders
+# 4.2 Kontrola všech 5 Known Folders přes [Environment]::GetFolderPath()
 $knownFolderMap = [ordered]@{
-    "Desktop"   = @{ cz = "Plocha";     api = "Desktop" }
-    "Documents" = @{ cz = "Dokumenty";  api = "MyDocuments" }
-    "Pictures"  = @{ cz = "Obrázky";    api = "MyPictures" }
-    "Music"     = @{ cz = "Hudba";      api = "MyMusic" }
-    "Videos"    = @{ cz = "Videa";      api = "MyVideos" }
+    "Desktop"   = @{ cz = "Plocha";     api = "Desktop";    reg = "Desktop" }
+    "Documents" = @{ cz = "Dokumenty";  api = "MyDocuments"; reg = "Documents" }
+    "Pictures"  = @{ cz = "Obrázky";    api = "MyPictures"; reg = "Pictures" }
+    "Music"     = @{ cz = "Hudba";      api = "MyMusic";    reg = "Music" }
+    "Videos"    = @{ cz = "Videa";      api = "MyVideos";   reg = "Videos" }
 }
 $redirectedFolders = @()
 
-if (Test-Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders") {
-    foreach ($enName in $knownFolderMap.Keys) {
-        $info = $knownFolderMap[$enName]
-        $regValue = (Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders" -Name $enName -ErrorAction SilentlyContinue).$enName
-        if ($regValue -and $regValue -match 'OneDrive') {
-            $redirectedFolders += @{ cz = $info.cz; en = $enName; path = $regValue }
+foreach ($enName in $knownFolderMap.Keys) {
+    $info = $knownFolderMap[$enName]
+    $resolvedPath = [Environment]::GetFolderPath($info.api)
+    if ($resolvedPath -match 'OneDrive') {
+        # Lokální cesta = USERPROFILE + poslední segment OneDrive cesty
+        $leaf = Split-Path $resolvedPath -Leaf
+        $localPath = Join-Path $env:USERPROFILE $leaf
+        $redirectedFolders += @{
+            cz    = $info.cz
+            en    = $info.reg
+            path  = $resolvedPath   # OneDrive cesta
+            local = $localPath      # cílová lokální cesta
         }
     }
 }
@@ -487,14 +493,8 @@ if ($redirectedFolders.Count -gt 0 -and -not $kfmDetected -and $Force) {
         foreach ($rf in $redirectedFolders) {
             Write-Host "  📦  $($rf.cz): přesun zpět ..." -NoNewline -ForegroundColor Yellow
             
-            # Mapování názvů na lokální cesty
-            $localFolder = switch ($rf.en) {
-                "Desktop"   { Join-Path $env:USERPROFILE "Desktop" }
-                "Documents" { Join-Path $env:USERPROFILE "Documents" }
-                "Pictures"  { Join-Path $env:USERPROFILE "Pictures" }
-                "Music"     { Join-Path $env:USERPROFILE "Music" }
-                "Videos"    { Join-Path $env:USERPROFILE "Videos" }
-            }
+            # Lokální cesta = USERPROFILE + poslední segment OD cesty
+            $localFolder = $rf.local
             $regName = $rf.en
             
             # 1. Kopírovat soubory z OneDrivu do lokální složky
