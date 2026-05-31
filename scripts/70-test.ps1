@@ -49,13 +49,33 @@ check "Python installed"                     ($python -ne $null) "winget install
 # 7. VS Code
 check "VS Code installed"                    (Get-Command code -ErrorAction SilentlyContinue) "winget install Microsoft.VisualStudioCode"
 
-# 8. PATH length
-$entries = ($env:PATH -split ';' | Where-Object { $_ -ne '' }).Count
-check "PATH < 50 entries ($entries)"          ($entries -le 50)
+# 8. PATH — per-scope analýza
+$sysPathRaw = [Environment]::GetEnvironmentVariable("PATH", "Machine")
+$usrPathRaw = [Environment]::GetEnvironmentVariable("PATH", "User")
+$sysEntries = if ($sysPathRaw) { $sysPathRaw -split ';' | Where-Object { $_ -ne '' } } else { @() }
+$usrEntries = if ($usrPathRaw) { $usrPathRaw -split ';' | Where-Object { $_ -ne '' } } else { @() }
+$totalEntries = ($env:PATH -split ';' | Where-Object { $_ -ne '' }).Count
 
-# 9. No PATH duplicates
-$dupes = ($env:PATH -split ';' | Where-Object { $_ -ne '' }) | Group-Object | Where-Object Count -gt 1
-check "PATH no duplicates"                   ($dupes.Count -eq 0) "repair.ps1 -Force"
+check "PATH total < 50 entries ($totalEntries)" ($totalEntries -le 50)
+
+# 9. PATH duplicity per scope
+$sysDupes = $sysEntries | Group-Object | Where-Object Count -gt 1
+$usrDupes = $usrEntries | Group-Object | Where-Object Count -gt 1
+$crossDupes = @()
+foreach ($s in $sysEntries) { $sNorm = $s.TrimEnd('\')
+    foreach ($u in $usrEntries) { if ($sNorm -eq $u.TrimEnd('\')) { $crossDupes += $sNorm; break } } }
+$crossDupes = $crossDupes | Select-Object -Unique
+
+$dupDetail = @()
+if ($sysDupes.Count -gt 0) { $dupDetail += "System:$($sysDupes.Count)" }
+if ($usrDupes.Count -gt 0) { $dupDetail += "User:$($usrDupes.Count)" }
+if ($crossDupes.Count -gt 0) { $dupDetail += "Cross:$($crossDupes.Count)" }
+$dupFix = if ($dupDetail.Count -gt 0) {
+    "repair.ps1 -Force ($($dupDetail -join ', '))"
+} else { "repair.ps1 -Force" }
+
+$pathDupOk = ($sysDupes.Count -eq 0 -and $usrDupes.Count -eq 0 -and $crossDupes.Count -eq 0)
+check "PATH no duplicates ($($dupDetail -join ', '))" $pathDupOk $dupFix
 
 # 10. SSH dir
 check "~/.ssh/ exists"                       (Test-Path "$env:USERPROFILE\.ssh") "mkdir ~/.ssh"
@@ -78,15 +98,32 @@ if (Test-Path $profilesDir) {
 }
 check "Profile JSONs valid"                  $profilesOk "Validate profiles/*.json syntax"
 
-# 13. OneDrive redirects
+# 13. OneDrive redirects — kontrola všech 5 systémových složek
 $odOk = $true
+$odRedirected = @()
+$knownFolderCheck = @{
+    "Desktop"   = "Plocha"
+    "Documents" = "Dokumenty"
+    "Pictures"  = "Obrázky"
+    "Music"     = "Hudba"
+    "Videos"    = "Videa"
+}
 if (Test-Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders") {
-    foreach ($n in @("Desktop","Documents")) {
-        $v = (Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders" -Name $n -ErrorAction SilentlyContinue).$n
-        if ($v -and $v -match 'OneDrive') { $odOk = $false }
+    foreach ($enName in $knownFolderCheck.Keys) {
+        $czName = $knownFolderCheck[$enName]
+        $v = (Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders" -Name $enName -ErrorAction SilentlyContinue).$enName
+        if ($v -and $v -match 'OneDrive') {
+            $odOk = $false
+            $odRedirected += $czName
+        }
     }
 }
-check "OneDrive not redirecting Desktop/Documents" $odOk "Turn off OneDrive backup"
+$odFixMsg = if ($odRedirected.Count -gt 0) {
+    "OneDrive zalohuje: $($odRedirected -join ', ') — vypnout v OneDrive -> Nastaveni -> Zalohovani -> Spravovat zalohovani"
+} else {
+    "Turn off OneDrive backup"
+}
+check "OneDrive not redirecting system folders" $odOk $odFixMsg
 
 # Summary
 Write-Host ""

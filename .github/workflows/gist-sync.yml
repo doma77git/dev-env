@@ -17,7 +17,7 @@ jobs:
 
       - name: Update Gist
         env:
-          GH_TOKEN: ${{ secrets.GIST_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           GIST_ID="2f489d9ce5e7e0ff75b17cbe8011bbb5"
           echo "Syncing bootstrap files to gist $GIST_ID ..."
