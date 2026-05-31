@@ -82,12 +82,12 @@ irm | iex
     │   ├── 50-setup-home.ps1        ← home instalace
     │   ├── 50-setup-lab.ps1         ← VM
     │   ├── 50-setup-work.ps1        ← firemní
-      │   ├── 50-setup-server.ps1      ← server (headless)
-      │   ├── 60-repair.ps1            ← opravy (ShouldProcess)
-      │   ├── 70-test.ps1              ← validace (15 checks)
-      │   ├── Confirm-Action.ps1       ← potvrzovací dialog (10s)
-      │   ├── link-configs.ps1         ← symlinky
-      │   └── undo-last.ps1            ← rollback guidance
+    │   ├── 50-setup-server.ps1      ← server (headless)
+    │   ├── 60-repair.ps1            ← opravy (ShouldProcess)
+    │   ├── 70-test.ps1              ← validace (17 checks)
+    │   ├── Confirm-Action.ps1       ← potvrzovací dialog (10s)
+    │   ├── link-configs.ps1         ← symlinky
+    │   └── undo-last.ps1            ← rollback guidance
     ├── profiles/             ← JSON definice profilů
     ├── configs/              ← verzované konfigy
     ├── ai/                   ← pro AI agenty
@@ -115,7 +115,7 @@ Doporučená struktura projektů:
 | `scripts/40-profile.ps1` | `./40-profile.ps1` | Detekce profilu |
 | `scripts/50-setup-home.ps1` | `./50-setup-home.ps1 -WhatIf` | Instalace (ShouldProcess) |
 | `scripts/60-repair.ps1` | `./60-repair.ps1 -WhatIf` | Opravy (ShouldProcess) |
-| `scripts/70-test.ps1` | `./70-test.ps1` | 15 kontrol |
+| `scripts/70-test.ps1` | `./70-test.ps1` | 17 kontrol |
 | `scripts/link-configs.ps1` | `./link-configs.ps1 -WhatIf` | Symlinky konfigů |
 | `scripts/Confirm-Action.ps1` | dot-source | Interaktivní potvrzení (10s timeout) |
 | `scripts/undo-last.ps1` | `./undo-last.ps1` | Rollback — zobrazí poslední log |
@@ -158,4 +158,4 @@ Doporučená struktura projektů:
 
 ---
 
-*dev-env v1.1.0 · 2026-05-30 · [manifest.json](../manifest.json)*
+*dev-env v1.1.1 · 2026-05-31 · [manifest.json](../manifest.json)*

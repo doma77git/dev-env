@@ -70,7 +70,7 @@ bootstrap.ps1 (GIST)
   │
   └─ 70. TEST ─────────────────────────
       scripts/70-test.ps1
-      15 checks → pass/fail → exit code
+      17 checks → pass/fail → exit code
       "testResult" in pipeline JSON
 ```
 

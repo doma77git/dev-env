@@ -27,20 +27,29 @@
       { "file": "profiles/server.json", "role": "Server — headless, no GUI, safe mode", "extends": "base" }
     ],
     "scripts": [
+      { "file": "scripts/00-menu.ps1",              "role": "Interactive menu with auto-countdown — choose categories, dry-run, or install", "runtime": "scripts/00-menu.ps1 [-WhatIf]" },
       { "file": "scripts/00-core-check.ps1",       "role": "Prerequisites — PS7, git, connectivity (no install)", "runtime": "scripts/00-core-check.ps1" },
       { "file": "scripts/00-bootstrap-fallback.ps1","role": "PS5 fallback — detect→recommend→exit (no install)",  "runtime": "powershell -c \"irm <gist>/00-bootstrap-fallback.ps1 | iex\"" },
+      { "file": "scripts/02-core-check.ps1",        "role": "Core check variant — PS version, git, connectivity with detailed output", "runtime": "scripts/02-core-check.ps1 [-WhatIf|-Force]" },
       { "file": "scripts/10-detect.ps1",            "role": "Environment inventory — fingerprint, OS, tools, PATH, OneDrive", "runtime": "scripts/10-detect.ps1" },
       { "file": "scripts/20-report.ps1",            "role": "Display report + save JSON to ~/.dev-env/", "runtime": "scripts/20-report.ps1" },
       { "file": "scripts/30-clone.ps1",             "role": "Git clone/pull (always runs — read-only)", "runtime": "scripts/30-clone.ps1" },
+      { "file": "scripts/30-configure.ps1",         "role": "Apply dotfiles, PowerShell profile, git config, environment settings (ShouldProcess)", "runtime": "scripts/30-configure.ps1 [-Force]" },
       { "file": "scripts/40-profile.ps1",           "role": "Profile detection (home/work/lab/server), identity", "runtime": "scripts/40-profile.ps1 [-Set home|work|lab|server]" },
+      { "file": "scripts/50-setup.ps1",             "role": "Setup dispatcher — detect profile, dispatch to 50-setup-<profile>.ps1 (ShouldProcess)", "runtime": "scripts/50-setup.ps1 [-WhatIf|-Force|-ProfileName home]" },
       { "file": "scripts/50-setup-home.ps1",        "role": "Home PC — winget install, dirs, git config (ShouldProcess)", "runtime": "scripts/50-setup-home.ps1 [-WhatIf|-Force|-Confirm]" },
       { "file": "scripts/50-setup-lab.ps1",         "role": "Lab VM — WSL, scoop, experimental (ShouldProcess)", "runtime": "scripts/50-setup-lab.ps1 [-WhatIf|-Force|-Confirm]" },
+      { "file": "scripts/50-setup-server.ps1",     "role": "Server — headless, minimal toolchain (ShouldProcess)", "runtime": "scripts/50-setup-server.ps1 [-WhatIf|-Force|-Confirm]" },
       { "file": "scripts/50-setup-work.ps1",        "role": "Corporate PC — proxy, VPN, manual (ShouldProcess)", "runtime": "scripts/50-setup-work.ps1 [-WhatIf|-Force|-Confirm]" },
       { "file": "scripts/60-repair.ps1",            "role": "Repair PATH, HOME, OneDrive, SSH (ShouldProcess)", "runtime": "scripts/60-repair.ps1 [-WhatIf|-Force|-Confirm]" },
-      { "file": "scripts/70-test.ps1",              "role": "Validate environment — 15 checks", "runtime": "scripts/70-test.ps1 (exit 0=pass)" },
+      { "file": "scripts/70-test.ps1",              "role": "Validate environment — 17 checks", "runtime": "scripts/70-test.ps1 (exit 0=pass)" },
+      { "file": "scripts/90-wt-profile.ps1",       "role": "Add DevEnv profile to Windows Terminal settings.json (ShouldProcess)", "runtime": "scripts/90-wt-profile.ps1 [-Force]" },
+      { "file": "scripts/95-dashboard.ps1",         "role": "Generate HTML dashboard from logs and report JSONs", "runtime": "scripts/95-dashboard.ps1 [-Output]" },
+      { "file": "scripts/99-validate-bootstrap.ps1","role": "End-to-end pipeline validation — sequential phase checks (WhatIf-safe)", "runtime": "scripts/99-validate-bootstrap.ps1 [-Quick]" },
       { "file": "scripts/Confirm-Action.ps1",       "role": "Interactive confirm with 10s timeout, headless detection", "runtime": ". ./scripts/Confirm-Action.ps1" },
       { "file": "scripts/link-configs.ps1",         "role": "Symlink configs from repo to ~/", "runtime": "scripts/link-configs.ps1 [-WhatIf|-Force]" },
-      { "file": "scripts/undo-last.ps1",            "role": "Rollback guidance — parse last transcript log", "runtime": "scripts/undo-last.ps1 [-Pager]" }
+      { "file": "scripts/undo-last.ps1",            "role": "Rollback guidance — parse last transcript log", "runtime": "scripts/undo-last.ps1 [-Pager]" },
+      { "file": "scripts/TEMPLATE.ps1",             "role": "Script template — copy for new scripts, includes logging, ShouldProcess, -Force", "runtime": "cp scripts/TEMPLATE.ps1 scripts/XX-name.ps1" }
     ],
     "configs": [
       { "file": "configs/git/.gitconfig",   "role": "Shared Git config — symlink to ~/.gitconfig" },
@@ -58,7 +67,9 @@
     "docs": [
       { "file": "docs/index.md",     "role": "Landing page — GitHub Pages" },
       { "file": "docs/architecture.md", "role": "Architecture — pipeline flow, layers, rollback" },
-      { "file": "docs/workflows.md", "role": "Workflows — step-by-step guides, GPG, server" }
+      { "file": "docs/workflows.md", "role": "Workflows — step-by-step guides, GPG, server" },
+      { "file": "docs/security.md", "role": "Security — secrets inventory, safeMode, proxy, SSH hardening" },
+      { "file": "docs/troubleshooting.md", "role": "Troubleshooting — common errors, OneDrive rollback, PATH repair" }
     ],
     "menu": [
       { "file": "menu/menu.ps1", "role": "Interactive terminal menu — all actions" }
@@ -70,16 +81,23 @@
 
   "runtime": {
     "entry": "bootstrap.ps1",
+    "alternate_entries": ["scripts/00-menu.ps1", "scripts/00-bootstrap-fallback.ps1", "bootstrap.sh"],
     "requires": ["pwsh 7+ (Windows)", "bash 4+ (Linux/WSL)", "irm (Windows) or curl (Linux)"],
     "flow": [
-      "00 — CORE CHECK: PS7, git, connectivity → exit 1 if missing (no auto-install)",
-      "30 — CLONE: git clone/pull → ~/.dev-env/repo/ (always runs, read-only)",
-      "10 — DETECT: fingerprint → OS → tools → PATH → OneDrive → corporate",
-      "20 — REPORT: JSON → ~/.dev-env/report-*.json + machines.json (append)",
-      "40 — PROFILE: home|work|lab|server, git identity, GitHub, SSH (scripts/40-profile.ps1)",
-      "50 — SETUP: packages, dirs, git config (scripts/50-setup-*.ps1, with ShouldProcess)",
-      "60 — REPAIR: PATH, HOME, OneDrive, SSH (scripts/60-repair.ps1, with ShouldProcess, transcript logged)",
-      "70 — TEST: 15 checks → pass/fail → exit code (scripts/70-test.ps1)"
+      "00 — INTERACTIVE: 3s countdown → menu (00-menu.ps1) or auto-install (bootstrap.ps1)",
+      "00 — CORE CHECK: PS7, git, connectivity → exit 1 if missing (no auto-install) (00-core-check.ps1 / 02-core-check.ps1)",
+      "30 — CLONE: git clone/pull → ~/.dev-env/repo/ (always runs, read-only) (30-clone.ps1)",
+      "30 — CONFIGURE: dotfiles, PS profile, git config, env vars (30-configure.ps1, ShouldProcess)",
+      "10 — DETECT: fingerprint → OS → tools → PATH → OneDrive → corporate (10-detect.ps1)",
+      "20 — REPORT: JSON → ~/.dev-env/report-*.json + machines.json (append) (20-report.ps1)",
+      "20 — INSTALL: winget package installation by category (20-install-software.ps1, ShouldProcess)",
+      "40 — PROFILE: home|work|lab|server, git identity, GitHub, SSH (40-profile.ps1)",
+      "50 — SETUP: dispatcher → profile-specific setup (50-setup.ps1 > 50-setup-{home,lab,server,work}.ps1, ShouldProcess)",
+      "60 — REPAIR: PATH dedup, HOME, OneDrive, SSH (60-repair.ps1, ShouldProcess, transcript logged)",
+      "70 — TEST: 17 checks → pass/fail → exit code (70-test.ps1)",
+      "90 — WT PROFILE: optional DevEnv profile for Windows Terminal (90-wt-profile.ps1)",
+      "95 — DASHBOARD: HTML overview from logs and report JSONs (95-dashboard.ps1)",
+      "99 — VALIDATE: end-to-end pipeline validation (99-validate-bootstrap.ps1)"
     ]
   },
 

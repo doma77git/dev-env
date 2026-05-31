@@ -11,7 +11,7 @@
 [![Linux](https://img.shields.io/badge/Linux-✅-FCC624)](.)
 
 > ⚡ **Jeden řádek pro kompletní vývojářské prostředí**  
-> `irm https://raw.githubusercontent.com/doma77git/dev-env/v1.0.0/bootstrap.ps1 | iex`
+> `irm https://raw.githubusercontent.com/doma77git/dev-env/v1.1.1/bootstrap.ps1 | iex`
 
 | Kategorie | Stav |
 |-----------|------|
@@ -183,7 +183,7 @@ irm | iex
 | **40. Profile** | `scripts/40-profile.ps1` | home / work / lab / server, git identity, GitHub, SSH |
 | **50. Setup** | `scripts/50-setup-{profile}.ps1` | Balíčky, složky, git config, autocrlf (ShouldProcess) |
 | **60. Repair** | `scripts/60-repair.ps1` | PATH, HOME, OneDrive, SSH (ShouldProcess) |
-| **70. Test** | `scripts/70-test.ps1` | 16 kontrol — exit 0 = pass |
+| **70. Test** | `scripts/70-test.ps1` | 17 kontrol — exit 0 = pass |
 | **Menu** | `menu/menu.ps1` | Interaktivní rozcestník |
 
 ---
@@ -388,4 +388,4 @@ cd ~/.dev-env/repo
 
 ---
 
-*dev-env v1.1.0 · [manifest.json](manifest.json)*
+*dev-env v1.1.1 · [manifest.json](manifest.json)*

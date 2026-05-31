@@ -8,10 +8,10 @@ param(
     [string]$DefaultChoice = "S"
 )
 
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 
 # ─── Cesty (projektová struktura) ──────────────────────────────
-$UserDevEnv = Join-Path $HOME ".dev-env"
+$UserDevEnv = Join-Path $env:USERPROFILE ".dev-env"
 $PreferencesPath = Join-Path $UserDevEnv "software-preferences.json"
 $InventoryPath   = Join-Path $UserDevEnv "software-inventory.json"
 $LogDir          = Join-Path $UserDevEnv "logs"

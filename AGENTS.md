@@ -41,7 +41,7 @@ Don't load `~/.dev-env/logs/*` unless debugging.
 | 🤖 AI agent — plný kontext | `ai/context.md` |
 | ⚙️ CI — data o projektu | `manifest.json` |
 
-**One-liner:** `irm https://raw.githubusercontent.com/doma77git/dev-env/v1.0.0/bootstrap.ps1 | iex`
+**One-liner:** `irm https://raw.githubusercontent.com/doma77git/dev-env/v1.1.1/bootstrap.ps1 | iex`
 
 ---
 
@@ -260,7 +260,7 @@ When starting work in this repo, load files in THIS order:
 **AI (good):**
 > Nejprve spustím suchý běh, abych zjistil, co se stane:
 > ```powershell
-> $env:DEV_ENV_WHATIF='1'; irm https://raw.githubusercontent.com/doma77git/dev-env/v1.0.0/bootstrap.ps1 | iex
+> $env:DEV_ENV_WHATIF='1'; irm https://raw.githubusercontent.com/doma77git/dev-env/v1.1.1/bootstrap.ps1 | iex
 > ```
 > Vidím, že chybí git a PowerShell 7. Mám pokračovat s instalací?
 
@@ -359,7 +359,7 @@ param([switch]$Force)
 | 40 | `40-profile.ps1` | Profile detection + identity |
 | 50 | `50-setup-home.ps1` | Package install (ShouldProcess, logged) |
 | 60 | `60-repair.ps1` | PATH, HOME, OneDrive repair (ShouldProcess, rollback) |
-| 70 | `70-test.ps1` | 16 validation checks → exit 0=pass, 1=fail |
+| 70 | `70-test.ps1` | up to 17 validation checks → exit 0=pass, 1=fail |
 
 ---
 

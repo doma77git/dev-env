@@ -1,0 +1,671 @@
+diff --git a/scripts/10-detect.ps1 b/scripts/10-detect.ps1
+index f5ab28f..b2eb4f8 100644
+--- a/scripts/10-detect.ps1
++++ b/scripts/10-detect.ps1
+@@ -62,30 +62,257 @@ foreach ($t in $detectTools) {
+     } else { $tools[$t] = $null }
+ }
+ 
+-# ─── 10.6 PATH analýza ──────────────────────────────────────
+-$pathEntries = $env:PATH -split ';' | Where-Object { $_ -ne '' }
++# ─── 10.6 PATH analýza — 3 úrovně ────────────────────────────
++Write-Host ""
++Write-Host "─── PATH / cesty ─────────────────────────────────────" -ForegroundColor DarkCyan
++
++# Helper: analyzuje jeden scope PATH
++function Test-PathScope {
++    param([string[]]$Entries, [string]$Label, [string]$ScopeName)
++    $count = $Entries.Count
++    $errors = @()
++    
++    Write-Host "  [$ScopeName] $Label" -ForegroundColor Cyan
++    Write-Host "    Počet: $count entries" -ForegroundColor Gray
++    
++    # Duplicity
++    $dupes = $Entries | Group-Object | Where-Object Count -gt 1
++    if ($dupes) {
++        foreach ($d in $dupes) {
++            $errors += "DUP($ScopeName): $($d.Name)"
++        }
++        Write-Host "    ⚠  $($dupes.Count) duplicit: $($dupes.Name -join ', ')" -ForegroundColor Yellow
++    } else {
++        Write-Host "    ✅  Bez duplicit" -ForegroundColor Green
++    }
++    
++    # Chybějící cesty
++    $missing = $Entries | Where-Object {
++        try { -not (Test-Path ([Environment]::ExpandEnvironmentVariables($_))) } catch { $true }
++    }
++    if ($missing) {
++        foreach ($m in $missing) {
++            $errors += "MISS($ScopeName): $m"
++        }
++        Write-Host "    ❌  $($missing.Count) chybí: $($missing -join '; ')" -ForegroundColor Red
++    } else {
++        Write-Host "    ✅  Všechny cesty existují" -ForegroundColor Green
++    }
++    
++    return [ordered]@{ count = $count; errors = @($errors) }
++}
++
++# 10.6.1 System PATH (Machine scope)
++$sysPathRaw = [Environment]::GetEnvironmentVariable("PATH", "Machine")
++$sysEntries = $sysPathRaw -split ';' | Where-Object { $_ -ne '' }
++$sysResult = Test-PathScope -Entries $sysEntries -Label "System PATH (Machine)" -ScopeName "SYS"
++
++# 10.6.2 User PATH (User scope)
++$usrPathRaw = [Environment]::GetEnvironmentVariable("PATH", "User")
++$usrEntries = if ($usrPathRaw) { $usrPathRaw -split ';' | Where-Object { $_ -ne '' } } else { @() }
++$usrResult = Test-PathScope -Entries $usrEntries -Label "User PATH" -ScopeName "USR"
++
++# 10.6.3 Combined $env:PATH (runtime view)
++$comEntries = $env:PATH -split ';' | Where-Object { $_ -ne '' }
++$combinedResult = Test-PathScope -Entries $comEntries -Label "Combined `$env:PATH (System + User)" -ScopeName "COM"
++
++# 10.6.4 Cross-scope duplicity
++$inBoth = @()
++foreach ($s in $sysEntries) {
++    $sNorm = $s.TrimEnd('\')
++    foreach ($u in $usrEntries) {
++        $uNorm = $u.TrimEnd('\')
++        if ($sNorm -eq $uNorm) { $inBoth += $sNorm }
++    }
++}
++if ($inBoth.Count -gt 0) {
++    Write-Host "  ⚠  $($inBoth.Count) cest je v System i User scope (cross-scope duplicita):" -ForegroundColor Yellow
++    foreach ($ib in $inBoth | Select-Object -Unique) {
++        Write-Host "      $ib" -ForegroundColor DarkYellow
++    }
++    Write-Host "      → Náprava: odebrat z User PATH, ponechat v System" -ForegroundColor DarkGray
++} else {
++    Write-Host "  ✅  Žádné cross-scope duplicity" -ForegroundColor Green
++}
++
++# 10.6.5 Souhrn PATH
++Write-Host ""
++Write-Host "  ─── SOUHRN ────────────────────────────────────────" -ForegroundColor DarkCyan
++Write-Host "  System (Machine): $($sysEntries.Count) entries"
++Write-Host "  User:             $($usrEntries.Count) entries"
++Write-Host "  Combined (runtime): $($comEntries.Count) entries"
++$totalErrors = $sysResult.errors.Count + $usrResult.errors.Count + $combinedResult.errors.Count
++if ($totalErrors -gt 0) {
++    Write-Host "  ⚠  $totalErrors problémů — spustit repair.ps1 -Force" -ForegroundColor Yellow
++} else {
++    Write-Host "  ✅  PATH je v pořádku" -ForegroundColor Green
++}
++
++# Sestavení strukturovaného výsledku
++$pathResult = [ordered]@{
++    system   = $sysResult
++    user     = $usrResult
++    combined = $combinedResult
++    crossScopeDupes = @($inBoth | Select-Object -Unique)
++}
+ $pathErrors = @()
+-if ($pathEntries.Count -gt 50) { $pathErrors += "Count: $($pathEntries.Count)" }
+-$pathErrors += $pathEntries | Group-Object | Where-Object Count -gt 1 | ForEach-Object { "DUP: $($_.Name)" }
+-$pathErrors += $pathEntries | Where-Object {
+-    try { -not (Test-Path ([Environment]::ExpandEnvironmentVariables($_))) } catch { $true }
+-} | ForEach-Object { "MISS: $_" }
++$pathErrors += $sysResult.errors
++$pathErrors += $usrResult.errors
++$pathErrors += $combinedResult.errors
+ 
+ # ─── 10.7 OneDrive ──────────────────────────────────────────
++Write-Host ""
++Write-Host "─── OneDrive / cloud ─────────────────────────────────" -ForegroundColor DarkCyan
++
++# 10.7.1 Cesta OneDrivu — z registru + proměnných prostředí
+ $odInfo = [ordered]@{}
++$oneDrivePaths = @()
++
++# Registry — osobní účet
+ foreach ($rp in @("HKCU:\Software\Microsoft\OneDrive\Accounts\Personal",
+                   "HKCU:\Software\Microsoft\OneDrive\Accounts\Business1")) {
+-    if (Test-Path $rp) { $odInfo[(Split-Path $rp -Leaf)] = (Get-ItemProperty $rp -ErrorAction SilentlyContinue).UserFolder }
++    if (Test-Path $rp) {
++        $folder = (Get-ItemProperty $rp -ErrorAction SilentlyContinue).UserFolder
++        if ($folder) {
++            $accName = Split-Path $rp -Leaf
++            $odInfo[$accName] = $folder
++            $oneDrivePaths += $folder
++        }
++    }
++}
++
++# Proměnné prostředí
++$odEnv = [Environment]::GetEnvironmentVariable("OneDrive", "User")
++$odCommercial = [Environment]::GetEnvironmentVariable("OneDriveCommercial", "User")
++if ($odEnv -and $odEnv -notin $oneDrivePaths) { $oneDrivePaths += $odEnv }
++if ($odCommercial -and $odCommercial -notin $oneDrivePaths) { $oneDrivePaths += $odCommercial }
++
++$primaryPath = $oneDrivePaths | Select-Object -First 1
++
++if ($primaryPath) {
++    Write-Host "  ✅  OneDrive: $primaryPath" -ForegroundColor Green
++    # Ověření, zda je na systémovém disku
++    $driveLetter = Split-Path -Qualifier $primaryPath
++    if ($driveLetter -ne "C:") {
++        Write-Host "  ⚠  OneDrive je na disku $driveLetter (mimo C:)" -ForegroundColor Yellow
++    }
++    if ($odCommercial) {
++        Write-Host "  ℹ   Firemní OneDrive: $odCommercial" -ForegroundColor DarkGray
++    }
++} else {
++    Write-Host "  ℹ   OneDrive není nastaven / není nainstalován" -ForegroundColor DarkGray
+ }
++
++# 10.7.2 Known Folder Move — přesměrování systémových složek
+ $odRedirects = @{}
++$knownFolderMap = [ordered]@{
++    "Desktop"   = "Plocha"
++    "Documents" = "Dokumenty"
++    "Pictures"  = "Obrázky"
++    "Music"     = "Hudba"
++    "Videos"    = "Videa"
++}
++$folderApiMap = @{
++    "Plocha"     = "Desktop"
++    "Dokumenty"  = "MyDocuments"
++    "Obrázky"    = "MyPictures"
++    "Hudba"      = "MyMusic"
++    "Videa"      = "MyVideos"
++}
++
+ if (Test-Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders") {
+-    foreach ($n in @("Desktop","Documents","Pictures","Downloads")) {
+-        $v = (Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders" -Name $n -ErrorAction SilentlyContinue).$n
+-        if ($v -and $v -match 'OneDrive') { $odRedirects[$n] = $v }
++    foreach ($enName in $knownFolderMap.Keys) {
++        $czName = $knownFolderMap[$enName]
++        $regValue = (Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders" -Name $enName -ErrorAction SilentlyContinue).$enName
++        $apiKey = $folderApiMap[$czName]
++        $actualPath = [Environment]::GetFolderPath($apiKey)
++        if ($regValue -and $regValue -match 'OneDrive') {
++            $odRedirects[$czName] = $regValue
++            Write-Host "  ✗   $czName → OneDrive" -ForegroundColor Yellow
++        } else {
++            Write-Host "  ✓   $czName → lokální ($actualPath)" -ForegroundColor Green
++        }
++    }
++}
++
++# 10.7.3 Velikost OneDrivu
++if ($primaryPath -and (Test-Path $primaryPath)) {
++    try {
++        Write-Host "  📊 Měření velikosti OneDrivu ..." -NoNewline -ForegroundColor DarkGray
++        $odItems = Get-ChildItem -Path $primaryPath -Recurse -ErrorAction SilentlyContinue
++        $odSize = $odItems | Measure-Object -Property Length -Sum -ErrorAction SilentlyContinue
++        $odCount = ($odItems | Where-Object { -not $_.PSIsContainer } | Measure-Object).Count
++        $sizeInGB = [math]::Round($odSize.Sum / 1GB, 2)
++        $sizeInMB = [math]::Round($odSize.Sum / 1MB, 1)
++        Write-Host " hotovo" -ForegroundColor Green
++        if ($sizeInGB -ge 1) {
++            Write-Host "  💾  $sizeInGB GB ($odCount souborů)" -ForegroundColor Cyan
++        } else {
++            Write-Host "  💾  $sizeInMB MB ($odCount souborů)" -ForegroundColor Cyan
++        }
++    } catch {
++        Write-Host "  ⚠  Nelze změřit velikost" -ForegroundColor Yellow
++    }
++}
++
++# ─── 10.8 Environment Variables ─────────────────────────────
++Write-Host ""
++Write-Host "─── Environment Variables / proměnné prostředí ───────" -ForegroundColor DarkCyan
++
++$envVars = [ordered]@{
++    "HOME"              = $env:HOME
++    "USERPROFILE"       = $env:USERPROFILE
++    "APPDATA"           = $env:APPDATA
++    "LOCALAPPDATA"      = $env:LOCALAPPDATA
++    "TEMP"              = $env:TEMP
++    "TMP"               = $env:TMP
++    "PSModulePath"      = $env:PSModulePath
++    "OneDrive"          = [Environment]::GetEnvironmentVariable("OneDrive", "User")
++    "OneDriveCommercial"= [Environment]::GetEnvironmentVariable("OneDriveCommercial", "User")
++    "DOTNET_ROOT"       = $env:DOTNET_ROOT
++    "EDITOR"            = $env:EDITOR
++    "VISUAL"            = $env:VISUAL
++}
++
++$envInfo = [ordered]@{}
++$envNote = ""
++
++foreach ($key in $envVars.Keys) {
++    $val = $envVars[$key]
++    if ($val) {
++        # Speciální handling pro dlouhé hodnoty
++        if ($key -eq "PSModulePath" -and $val.Length -gt 80) {
++            $shortVal = ($val -split ';')[0] + "; ..."
++            Write-Host "  ✅  $key = $shortVal" -ForegroundColor Gray
++        } else {
++            Write-Host "  ✅  $key = $val" -ForegroundColor Gray
++        }
++        $envInfo[$key] = $val
++    } else {
++        Write-Host "  ℹ   $key = (nenastaveno)" -ForegroundColor DarkGray
++        $envInfo[$key] = $null
+     }
+ }
+ 
+-# ─── 10.8 Corporate signály ─────────────────────────────────
++# PowerShell specifika
++Write-Host ""
++Write-Host "  ─── PowerShell ───────────────────────────────────" -ForegroundColor DarkCyan
++Write-Host "  Verze:          $($PSVersionTable.PSVersion)" -ForegroundColor Gray
++$edition = if ($PSVersionTable.PSEdition) { $PSVersionTable.PSEdition } else { "Desktop" }
++Write-Host "  Edice:          $edition" -ForegroundColor Gray
++Write-Host "  PROFILE:        $PROFILE" -ForegroundColor Gray
++$execPolicy = Get-ExecutionPolicy -ErrorAction SilentlyContinue
++Write-Host "  ExecutionPolicy: $execPolicy" -ForegroundColor Gray
++Write-Host "  $($Host.Name): $($Host.Version)" -ForegroundColor Gray
++
++$envInfo["PowerShell"] = [ordered]@{
++    version = "$($PSVersionTable.PSVersion)"
++    edition = $edition
++    profile = "$PROFILE"
++    executionPolicy = "$execPolicy"
++}
++
++# ─── 10.9 Corporate signály ─────────────────────────────────
+ $corp = [ordered]@{
+     domainJoined = $cs.PartOfDomain
+     domain       = $cs.Domain
+@@ -94,7 +321,7 @@ $corp = [ordered]@{
+     proxy        = (Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings" -ErrorAction SilentlyContinue).ProxyServer
+ }
+ 
+-# ─── 10.9 Status ────────────────────────────────────────────
++# ─── 10.10 Status ───────────────────────────────────────────
+ $status = "new"; $changes = @()
+ if ($previous) {
+     $pOs = $previous.os
+@@ -127,7 +354,7 @@ if ($previous) {
+     if ($changes.Count -eq 0) { $status = "same" }
+ }
+ 
+-# ─── 10.10 Build report object ──────────────────────────────
++# ─── 10.11 Build report object ──────────────────────────────
+ $report = [ordered]@{
+     pipeline = [ordered]@{
+         phases    = [ordered]@{ "00"="core-check"; "10"="environment-detect"; "20"="inventory-report"; "30"="repository-clone"; "40"="profile-identity"; "50"="package-setup"; "60"="environment-repair"; "70"="validation-test" }
+@@ -147,7 +374,8 @@ $report = [ordered]@{
+     domain      = $domain
+     os          = $osInfo
+     tools       = $tools
+-    path        = [ordered]@{ count = $pathEntries.Count; errors = @($pathErrors) }
++    path        = $pathResult
++    env         = $envInfo
+     onedrive    = [ordered]@{ accounts = $odInfo; redirects = $odRedirects }
+     corporate   = $corp
+     changes     = @($changes)
+diff --git a/scripts/60-repair.ps1 b/scripts/60-repair.ps1
+index 71ce41e..14a4a81 100644
+--- a/scripts/60-repair.ps1
++++ b/scripts/60-repair.ps1
+@@ -22,45 +22,256 @@ if (-not $env:HOME) {
+     }
+ }
+ 
+-# 2. PATH duplicates — detection only (manual fix via PATH cleanup)
+-$pathEntries = $env:PATH -split ';' | Where-Object { $_ -ne '' }
+-$dupes = $pathEntries | Group-Object | Where-Object Count -gt 1
+-if ($dupes) {
+-    $issues += $dupes.Count
+-    foreach ($d in $dupes) {
+-        Write-Host "[ISSUE] PATH duplicita: $($d.Name) (x$($d.Count))" -ForegroundColor Red
++# 2. PATH duplicates — per-scope analýza + dedup
++Write-Host ""
++Write-Host "─── 2. PATH duplicity / duplicitní cesty ──────────────" -ForegroundColor Cyan
++
++# Načtení obou scopů
++$sysPathRaw = [Environment]::GetEnvironmentVariable("PATH", "Machine")
++$usrPathRaw = [Environment]::GetEnvironmentVariable("PATH", "User")
++$sysEntries = if ($sysPathRaw) { $sysPathRaw -split ';' | Where-Object { $_ -ne '' } } else { @() }
++$usrEntries = if ($usrPathRaw) { $usrPathRaw -split ';' | Where-Object { $_ -ne '' } } else { @() }
++$comEntries = $env:PATH -split ';' | Where-Object { $_ -ne '' }
++
++# Helper: najdi duplicity v poli
++function Get-Duplicates($Entries) {
++    return $Entries | Group-Object | Where-Object Count -gt 1
++}
++
++$sysDupes = Get-Duplicates $sysEntries
++$usrDupes = Get-Duplicates $usrEntries
++$comDupes = Get-Duplicates $comEntries
++
++# Cross-scope duplicity (stejná cesta v System i User)
++$crossDupes = @()
++foreach ($s in $sysEntries) {
++    $sNorm = $s.TrimEnd('\')
++    foreach ($u in $usrEntries) {
++        if ($sNorm -eq $u.TrimEnd('\')) { $crossDupes += $sNorm; break }
++    }
++}
++$crossDupes = $crossDupes | Select-Object -Unique
++
++$totalDupes = $sysDupes.Count + $usrDupes.Count + $crossDupes.Count
++
++if ($totalDupes -gt 0) {
++    $issues += $totalDupes
++    Write-Host "  ⚠  Nalezeno $totalDupes duplicit:" -ForegroundColor Yellow
++    
++    # System scope duplicity (vyžadují admina)
++    if ($sysDupes.Count -gt 0) {
++        Write-Host "  [SYSTEM] $($sysDupes.Count) duplicit v System PATH (vyžaduje admin opravu):" -ForegroundColor Red
++        foreach ($d in $sysDupes) { Write-Host "      ⚠  $($d.Name) (x$($d.Count))" -ForegroundColor Red }
++    }
++    
++    # User scope duplicity (lze opravit)
++    if ($usrDupes.Count -gt 0) {
++        Write-Host "  [USER]   $($usrDupes.Count) duplicit v User PATH (lze opravit):" -ForegroundColor Yellow
++        foreach ($d in $usrDupes) { Write-Host "      ✗  $($d.Name) (x$($d.Count))" -ForegroundColor Yellow }
+     }
+-    if ($PSCmdlet.ShouldProcess("$($dupes.Count) duplicate PATH entries", "Deduplicate PATH")) {
+-        Write-Host "  FIX: Manual cleanup required — edit PATH in System Properties" -ForegroundColor Yellow
++    
++    # Cross-scope duplicity
++    if ($crossDupes.Count -gt 0) {
++        Write-Host "  [CROSS]  $($crossDupes.Count) cest je v System i User scope:" -ForegroundColor Yellow
++        foreach ($c in $crossDupes) { Write-Host "      ✗  $c" -ForegroundColor Yellow }
++        Write-Host "      → Náprava: odebrat z User PATH, ponechat v System" -ForegroundColor DarkGray
+     }
++    
++    # Oprava: deduplikace User PATH
++    $fixTargets = @()
++    if ($usrDupes.Count -gt 0) { $fixTargets += "$($usrDupes.Count) User duplicit" }
++    if ($crossDupes.Count -gt 0) { $fixTargets += "$($crossDupes.Count) cross-scope (odebrat z User)" }
++    
++    if ($fixTargets.Count -gt 0) {
++        $fixLabel = $fixTargets -join ', '
++        if ($PSCmdlet.ShouldProcess($fixLabel, "Deduplicate User PATH")) {
++            try {
++                # Zachovat první výskyt každé cesty v User scope
++                $seen = [ordered]@{}
++                $dedupedUser = $usrEntries | Where-Object {
++                    $normalized = $_.TrimEnd('\')
++                    if (-not $seen.ContainsKey($normalized)) { $seen[$normalized] = $true; return $true }
++                    return $false
++                }
++                # Odebrat cross-scope duplicity (nechat v System)
++                $cleanedUser = $dedupedUser | Where-Object {
++                    $norm = $_.TrimEnd('\')
++                    $isInSystem = $sysEntries | Where-Object { $_.TrimEnd('\') -eq $norm } | Select-Object -First 1
++                    -not $isInSystem
++                }
++                # Alespoň User PATH zůstane
++                if ($cleanedUser.Count -eq 0 -and $dedupedUser.Count -gt 0) { $cleanedUser = $dedupedUser }
++                
++                $newPath = $cleanedUser -join ';'
++                [Environment]::SetEnvironmentVariable("PATH", $newPath, "User")
++                # Rebuild runtime PATH: System + nová User
++                $env:PATH = $sysEntries -join ';' + ';' + $newPath
++                Write-Host "  ✅  User PATH vyčištěna: $($usrEntries.Count - $cleanedUser.Count) duplicit odstraněno" -ForegroundColor Green
++                Write-Host "  ℹ   System PATH duplicity vyžadují ruční opravu (Admin)" -ForegroundColor DarkGray
++                $fixes++
++            } catch {
++                Write-Host "  ❌  User PATH dedup selhal: $($_.Exception.Message)" -ForegroundColor Red
++            }
++        }
++    } else {
++        Write-Host "  ℹ   Pouze System PATH duplicity — nelze opravit bez Admin práv" -ForegroundColor DarkGray
++    }
++} else {
++    Write-Host "  ✅  Žádné duplicity v PATH" -ForegroundColor Green
+ }
+ 
+-# 3. PATH missing entries — detection only (manual fix)
+-$missing = $pathEntries | Where-Object { 
++# 3. PATH missing entries — per-scope analýza + cleanup
++Write-Host ""
++Write-Host "─── 3. PATH chybějící cesty / missing entries ────────" -ForegroundColor Cyan
++
++# Chybějící v System PATH
++$sysMissing = $sysEntries | Where-Object {
++    try { -not (Test-Path ([Environment]::ExpandEnvironmentVariables($_))) } catch { $true }
++}
++# Chybějící v User PATH
++$usrMissing = $usrEntries | Where-Object {
+     try { -not (Test-Path ([Environment]::ExpandEnvironmentVariables($_))) } catch { $true }
+ }
+-if ($missing) {
+-    $issues += $missing.Count
+-    foreach ($m in $missing) {
+-        Write-Host "[ISSUE] PATH missing: $m" -ForegroundColor Red
++
++$totalMissing = $sysMissing.Count + $usrMissing.Count
++
++if ($totalMissing -gt 0) {
++    $issues += $totalMissing
++    Write-Host "  ⚠  Nalezeno $totalMissing chybějících cest:" -ForegroundColor Yellow
++    
++    # System missing (vyžaduje admina)
++    if ($sysMissing.Count -gt 0) {
++        Write-Host "  [SYSTEM] $($sysMissing.Count) chybějících v System PATH (vyžaduje admin opravu):" -ForegroundColor Red
++        foreach ($m in $sysMissing) { Write-Host "      ❌  $m" -ForegroundColor Red }
+     }
+-    if ($PSCmdlet.ShouldProcess("$($missing.Count) missing PATH entries", "Remove missing PATH entries")) {
+-        Write-Host "  FIX: Manual cleanup required — remove missing entries from PATH" -ForegroundColor Yellow
++    
++    # User missing (lze opravit)
++    if ($usrMissing.Count -gt 0) {
++        Write-Host "  [USER]   $($usrMissing.Count) chybějících v User PATH:" -ForegroundColor Yellow
++        foreach ($m in $usrMissing) { Write-Host "      ❌  $m" -ForegroundColor Yellow }
+     }
++    
++    # Oprava: odstranit chybějící z User PATH
++    if ($usrMissing.Count -gt 0) {
++        $usrMissingList = $usrMissing -join ', '
++        if ($PSCmdlet.ShouldProcess($usrMissingList, "Remove missing entries from User PATH")) {
++            try {
++                $cleanUser = $usrEntries | Where-Object { $_ -notin $usrMissing }
++                $newPath = $cleanUser -join ';'
++                [Environment]::SetEnvironmentVariable("PATH", $newPath, "User")
++                # Rebuild runtime PATH
++                $env:PATH = $sysEntries -join ';' + ';' + $newPath
++                Write-Host "  ✅  Odstraněno $($usrMissing.Count) chybějících cest z User PATH" -ForegroundColor Green
++                $fixes++
++            } catch {
++                Write-Host "  ❌  User PATH cleanup selhal: $($_.Exception.Message)" -ForegroundColor Red
++            }
++        }
++    } else {
++        Write-Host "  ℹ   Chybějící cesty pouze v System PATH — vyžaduje Admin opravu" -ForegroundColor DarkGray
++    }
++} else {
++    Write-Host "  ✅  Všechny cesty v PATH existují" -ForegroundColor Green
+ }
+ 
+-# 4. OneDrive folder redirects — detection + recommendation
++# 4. OneDrive folder redirects — detailed detection + repair
++Write-Host ""
++Write-Host "─── 4. OneDrive / Known Folder Move ─────────────────" -ForegroundColor Cyan
++
++# 4.1 Zjištění cesty OneDrivu
++$odPath = $null
++foreach ($rp in @("HKCU:\Software\Microsoft\OneDrive\Accounts\Personal",
++                  "HKCU:\Software\Microsoft\OneDrive\Accounts\Business1")) {
++    if (Test-Path $rp) {
++        $folder = (Get-ItemProperty $rp -ErrorAction SilentlyContinue).UserFolder
++        if ($folder) { $odPath = $folder; break }
++    }
++}
++if (-not $odPath) { $odPath = [Environment]::GetEnvironmentVariable("OneDrive", "User") }
++
++if ($odPath) {
++    Write-Host "  📁 OneDrive: $odPath" -ForegroundColor DarkGray
++} else {
++    Write-Host "  ℹ   OneDrive není nainstalován / nastaven" -ForegroundColor DarkGray
++}
++
++# 4.2 Kontrola všech 5 Known Folders
++$knownFolderMap = [ordered]@{
++    "Desktop"   = @{ cz = "Plocha";     api = "Desktop" }
++    "Documents" = @{ cz = "Dokumenty";  api = "MyDocuments" }
++    "Pictures"  = @{ cz = "Obrázky";    api = "MyPictures" }
++    "Music"     = @{ cz = "Hudba";      api = "MyMusic" }
++    "Videos"    = @{ cz = "Videa";      api = "MyVideos" }
++}
++$redirectedFolders = @()
++
+ if (Test-Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders") {
+-    foreach ($n in @("Desktop","Documents","Pictures")) {
+-        $v = (Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders" -Name $n -ErrorAction SilentlyContinue).$n
+-        if ($v -and $v -match 'OneDrive') {
+-            $issues++
+-            Write-Host "[ISSUE] OneDrive redirects $n → $v" -ForegroundColor Yellow
+-            if ($PSCmdlet.ShouldProcess("$n → local folder", "Unlink OneDrive redirect")) {
+-                Write-Host "  FIX: Manually disable OneDrive backup for $n in OneDrive Settings" -ForegroundColor Yellow
++    foreach ($enName in $knownFolderMap.Keys) {
++        $info = $knownFolderMap[$enName]
++        $regValue = (Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders" -Name $enName -ErrorAction SilentlyContinue).$enName
++        if ($regValue -and $regValue -match 'OneDrive') {
++            $redirectedFolders += @{ cz = $info.cz; en = $enName; path = $regValue }
++        }
++    }
++}
++
++# 4.3 Zobrazení výsledku + nabídka opravy
++if ($redirectedFolders.Count -gt 0) {
++    $issues += $redirectedFolders.Count
++    Write-Host ""
++    Write-Host "  ⚠  $($redirectedFolders.Count) systémových složek je přesměrováno do OneDrivu:" -ForegroundColor Yellow
++    
++    # Měření velikosti přesměrovaných složek
++    foreach ($rf in $redirectedFolders) {
++        $folderSize = ""
++        try {
++            if (Test-Path $rf.path) {
++                $items = Get-ChildItem -Path $rf.path -Recurse -ErrorAction SilentlyContinue
++                $size = $items | Measure-Object -Property Length -Sum -ErrorAction SilentlyContinue
++                $count = ($items | Where-Object { -not $_.PSIsContainer } | Measure-Object).Count
++                if ($size.Sum -ge 1GB) {
++                    $folderSize = " ($([math]::Round($size.Sum / 1GB, 1))) GB, $count souborů"
++                } elseif ($size.Sum -ge 1MB) {
++                    $folderSize = " ($([math]::Round($size.Sum / 1MB, 0))) MB, $count souborů"
++                } else {
++                    $folderSize = ", $count souborů"
++                }
++            }
++        } catch {}
++        Write-Host "  ✗   $($rf.cz) → $($rf.path)$folderSize" -ForegroundColor Red
++    }
++    
++    Write-Host ""
++    Write-Host "  ─── DOPORUČENÍ ─────────────────────────────────" -ForegroundColor Cyan
++    Write-Host "  Při vypnutí zálohování OneDrivu se soubory" -ForegroundColor White
++    Write-Host "  PŘESUNOU zpět do C:\Users\spravce\ — nedojde ke ztrátě." -ForegroundColor White
++    Write-Host "  Data zůstanou v OneDrivu v cloudu i po přesunu." -ForegroundColor DarkGray
++    Write-Host ""
++    Write-Host "  Chcete otevřít nastavení zálohování OneDrivu?" -ForegroundColor Yellow
++    Write-Host "  (OneDrive → Nastavení → Zálohování → Spravovat zálohování)" -ForegroundColor DarkGray
++    Write-Host "  Poté klikněte na složku → Zastavit zálohování" -ForegroundColor DarkGray
++    
++    if ($PSCmdlet.ShouldProcess("OneDrive Backup Settings", "Open OneDrive settings page")) {
++        try {
++            Start-Process "ms-settings:backup"
++            Write-Host "  ✅  Otevřeno Nastavení → Účty → Zálohování" -ForegroundColor Green
++            Write-Host "      Klikněte na 'Spravovat zálohování OneDrivu'" -ForegroundColor Cyan
++            Write-Host "      a vypněte složky, které chcete vrátit do lokálního umístění" -ForegroundColor Cyan
++            $fixes++
++        } catch {
++            try {
++                # Fallback: otevřít OneDrive přímo
++                Start-Process "onedrive:"
++                Write-Host "  ⚠  Otevřen OneDrive — přejděte do Nastavení → Zálohování" -ForegroundColor Yellow
++                $fixes++
++            } catch {
++                Write-Host "  ❌  Nelze otevřít nastavení — otevřete ručně:" -ForegroundColor Red
++                Write-Host "      Nastavení → Účty → Zálohování Windows → OneDrive" -ForegroundColor Cyan
+             }
+         }
+     }
++} else {
++    Write-Host "  ✅  Žádné složky nejsou přesměrovány do OneDrivu" -ForegroundColor Green
+ }
+ 
+ # 5. SSH keys existence
+diff --git a/scripts/70-test.ps1 b/scripts/70-test.ps1
+index 24c809d..caa1fb2 100644
+--- a/scripts/70-test.ps1
++++ b/scripts/70-test.ps1
+@@ -49,13 +49,33 @@ check "Python installed"                     ($python -ne $null) "winget install
+ # 7. VS Code
+ check "VS Code installed"                    (Get-Command code -ErrorAction SilentlyContinue) "winget install Microsoft.VisualStudioCode"
+ 
+-# 8. PATH length
+-$entries = ($env:PATH -split ';' | Where-Object { $_ -ne '' }).Count
+-check "PATH < 50 entries ($entries)"          ($entries -le 50)
+-
+-# 9. No PATH duplicates
+-$dupes = ($env:PATH -split ';' | Where-Object { $_ -ne '' }) | Group-Object | Where-Object Count -gt 1
+-check "PATH no duplicates"                   ($dupes.Count -eq 0) "repair.ps1 -Force"
++# 8. PATH — per-scope analýza
++$sysPathRaw = [Environment]::GetEnvironmentVariable("PATH", "Machine")
++$usrPathRaw = [Environment]::GetEnvironmentVariable("PATH", "User")
++$sysEntries = if ($sysPathRaw) { $sysPathRaw -split ';' | Where-Object { $_ -ne '' } } else { @() }
++$usrEntries = if ($usrPathRaw) { $usrPathRaw -split ';' | Where-Object { $_ -ne '' } } else { @() }
++$totalEntries = ($env:PATH -split ';' | Where-Object { $_ -ne '' }).Count
++
++check "PATH total < 50 entries ($totalEntries)" ($totalEntries -le 50)
++
++# 9. PATH duplicity per scope
++$sysDupes = $sysEntries | Group-Object | Where-Object Count -gt 1
++$usrDupes = $usrEntries | Group-Object | Where-Object Count -gt 1
++$crossDupes = @()
++foreach ($s in $sysEntries) { $sNorm = $s.TrimEnd('\')
++    foreach ($u in $usrEntries) { if ($sNorm -eq $u.TrimEnd('\')) { $crossDupes += $sNorm; break } } }
++$crossDupes = $crossDupes | Select-Object -Unique
++
++$dupDetail = @()
++if ($sysDupes.Count -gt 0) { $dupDetail += "System:$($sysDupes.Count)" }
++if ($usrDupes.Count -gt 0) { $dupDetail += "User:$($usrDupes.Count)" }
++if ($crossDupes.Count -gt 0) { $dupDetail += "Cross:$($crossDupes.Count)" }
++$dupFix = if ($dupDetail.Count -gt 0) {
++    "repair.ps1 -Force ($($dupDetail -join ', '))"
++} else { "repair.ps1 -Force" }
++
++$pathDupOk = ($sysDupes.Count -eq 0 -and $usrDupes.Count -eq 0 -and $crossDupes.Count -eq 0)
++check "PATH no duplicates ($($dupDetail -join ', '))" $pathDupOk $dupFix
+ 
+ # 10. SSH dir
+ check "~/.ssh/ exists"                       (Test-Path "$env:USERPROFILE\.ssh") "mkdir ~/.ssh"
+@@ -78,15 +98,32 @@ if (Test-Path $profilesDir) {
+ }
+ check "Profile JSONs valid"                  $profilesOk "Validate profiles/*.json syntax"
+ 
+-# 13. OneDrive redirects
++# 13. OneDrive redirects — kontrola všech 5 systémových složek
+ $odOk = $true
++$odRedirected = @()
++$knownFolderCheck = @{
++    "Desktop"   = "Plocha"
++    "Documents" = "Dokumenty"
++    "Pictures"  = "Obrázky"
++    "Music"     = "Hudba"
++    "Videos"    = "Videa"
++}
+ if (Test-Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders") {
+-    foreach ($n in @("Desktop","Documents")) {
+-        $v = (Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders" -Name $n -ErrorAction SilentlyContinue).$n
+-        if ($v -and $v -match 'OneDrive') { $odOk = $false }
++    foreach ($enName in $knownFolderCheck.Keys) {
++        $czName = $knownFolderCheck[$enName]
++        $v = (Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders" -Name $enName -ErrorAction SilentlyContinue).$enName
++        if ($v -and $v -match 'OneDrive') {
++            $odOk = $false
++            $odRedirected += $czName
++        }
+     }
+ }
+-check "OneDrive not redirecting Desktop/Documents" $odOk "Turn off OneDrive backup"
++$odFixMsg = if ($odRedirected.Count -gt 0) {
++    "OneDrive zalohuje: $($odRedirected -join ', ') — vypnout v OneDrive -> Nastaveni -> Zalohovani -> Spravovat zalohovani"
++} else {
++    "Turn off OneDrive backup"
++}
++check "OneDrive not redirecting system folders" $odOk $odFixMsg
+ 
+ # Summary
+ Write-Host ""

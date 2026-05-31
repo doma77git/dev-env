@@ -7,3 +7,5 @@ data/*.json
 
 # Design conversation transcripts — contain personal environment data (PII)
 Potřebuji vybudovat*.md
+.codewhale/
+.deepseek/

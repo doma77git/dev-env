@@ -92,7 +92,7 @@ Run-Phase -Name "60-repair -WhatIf" -Script "60-repair.ps1" -Args "-WhatIf -Skip
 Run-Phase -Name "60-repair -Force" -Script "60-repair.ps1" -Args "-Force -SkipBackup" -Description "Skutečná oprava"
 
 # Fáze 5: Validační testy
-Run-Phase -Name "70-test" -Script "70-test.ps1" -Description "15 testů"
+Run-Phase -Name "70-test" -Script "70-test.ps1" -Description "17 testů"
 
 # Fáze 6: Setup suchý běh
 Run-Phase -Name "50-setup -WhatIf" -Script "50-setup-home.ps1" -Args "-WhatIf" -Description "Suchý běh instalace"

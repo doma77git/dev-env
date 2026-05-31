@@ -49,8 +49,8 @@ WHAT HAPPENS:
     → 60. REPAIR (scripts/60-repair.ps1, ShouldProcess)
          PATH, HOME, OneDrive, SSH (📝 transcript logged)
     → 70. TEST (scripts/70-test.ps1)
-         15EST (scripts/70-test.ps1)
-         14 checks → exit 0=pass, 1=fail
+         17 checks (scripts/70-test.ps1)
+         up to 17 checks → exit 0=pass, 1=fail
 ```
 
 ---
@@ -101,7 +101,7 @@ USER runs: irm <gist> | iex  (nebo s $env:DEV_ENV_WHATIF='1')
   │   Same as 50: -WhatIf | confirm | -Force | -Confirm
   │
   └─ Phase 70 — Test:
-      14 checks → pass/fail → exit code
+      up to 17 checks → pass/fail → exit code
 ```
 
 ---
@@ -213,7 +213,7 @@ Report JSON (from `~/.dev-env/report-*.json` or stdout):
 │                                                         │
 │  4. TEST                                                │
 │     User: 70-test.ps1                                   │
-│     → 14 checks → ✅/❌ → exit code 0 or 1              │
+│     → up to 17 checks → ✅/❌ → exit code 0 or 1              │
 │                                                         │
 │  5. MAINTAIN                                            │
 │     User: menu.ps1 or irm <gist> | iex                  │

@@ -1,7 +1,7 @@
 #!/usr/bin/env pwsh
 # === scripts/70-test.ps1 ======================================
-# ROLE:   Validate environment — 16 checks, exit 0 (pass) or 1 (fail)
-#         Ověření prostředí — 16 kontrol
+# ROLE:   Validate environment — up to 17 checks, exit 0 (pass) or 1 (fail)
+#         Ověření prostředí — až 17 kontrol
 # RUN:    ./70-test.ps1
 # INPUT:  None (reads env vars, PATH, registry)
 # OUTPUT: Exit code 0=all pass, 1=some fail

@@ -2,9 +2,9 @@
 # === bootstrap.ps1 =============================================
 # ROLE:   One-liner bootstrap — clone repo + run pipeline
 #         Jeden příkaz pro celý dev-env pipeline
-# RUN:    irm .../v1.0.0/bootstrap.ps1 | iex
-#         irm .../v1.0.0/bootstrap.ps1 | iex -WhatIf
-#         irm .../v1.0.0/bootstrap.ps1 | iex -Quick
+# RUN:    irm .../v1.1.1/bootstrap.ps1 | iex
+#         irm .../v1.1.1/bootstrap.ps1 | iex -WhatIf
+#         irm .../v1.1.1/bootstrap.ps1 | iex -Quick
 # ==============================================================
 [CmdletBinding(SupportsShouldProcess)]
 param(
@@ -36,7 +36,7 @@ $repoDir = Join-Path $env:USERPROFILE ".dev-env" "repo"
 
 Write-Host ""
 Write-Host "╔══════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "║  DEV-ENV PIPELINE — Bootstrap v1.0.0    ║" -ForegroundColor Cyan
+Write-Host "║  DEV-ENV PIPELINE — Bootstrap v1.1.1    ║" -ForegroundColor Cyan
 Write-Host "╚══════════════════════════════════════════╝" -ForegroundColor Cyan
 
 # ─── 0. Smoke test ────────────────────────────────────────────
