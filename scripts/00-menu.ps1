@@ -296,7 +296,22 @@ do {
 
     switch ($choice) {
         "S" {
-            Write-Log "User selected: Install" "INFO"
+                        Write-Log "User selected: Install" "INFO"
+
+            # Bezpecnostni checkpoint - safeMode
+            $menuCfgPath = Join-Path $env:USERPROFILE ".dev-env" "config" "profile.json"
+            if (Test-Path $menuCfgPath) {
+                try { $menuCfg = Get-Content $menuCfgPath -Raw | ConvertFrom-Json
+                    if ($menuCfg.safeMode) {
+                        Write-Host "SAFE MODE ACTIVE ($($menuCfg.type)) - instalace zablokovana" -ForegroundColor Red
+                        Write-Host "      Spustte s -Force nebo prepnete profil" -ForegroundColor Yellow
+                        Write-Log "SafeMode blocked install from menu" "WARN"
+                        continue
+                    }
+                } catch { Write-Log "SafeMode check failed:             Write-Log "User selected: Install" "INFO"" "WARN" }
+            }
+
+            # Ziskani seznamu chybejicich
             # Získání seznamu chybějících
             $missing = @()
             foreach ($key in $Categories.Keys) {
