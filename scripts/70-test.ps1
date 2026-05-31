@@ -1,8 +1,11 @@
 #!/usr/bin/env pwsh
 # === scripts/70-test.ps1 ======================================
-# ROLE:   Validate environment — return 0 (pass) or 1 (fail)
-#         Ověření prostředí
+# ROLE:   Validate environment — 16 checks, exit 0 (pass) or 1 (fail)
+#         Ověření prostředí — 16 kontrol
 # RUN:    ./70-test.ps1
+# INPUT:  None (reads env vars, PATH, registry)
+# OUTPUT: Exit code 0=all pass, 1=some fail
+#         Console output with ✅/❌ per check
 # ==============================================================
 $ErrorActionPreference = "Continue"
 $pass = 0; $fail = 0
@@ -19,6 +22,13 @@ function check($label, $condition, $fix) {
         if ($fix) { Write-Host "      Fix: $fix" -ForegroundColor DarkCyan }
         $script:fail++
     }
+}
+
+# Detekce s fallbackem na Program Files (pro appky ne v PATH)
+function Test-AppInstalled($name, $paths) {
+    if (Get-Command $name -ErrorAction SilentlyContinue) { return $true }
+    foreach ($p in $paths) { if (Test-Path $p) { return $true } }
+    return $false
 }
 
 # 1. OS
@@ -38,16 +48,17 @@ if ($git) {
     check "Git user.email"                    (git config --global user.email 2>$null) "git config --global user.email"
 }
 
-# 5. Node
-$node = Get-Command node -ErrorAction SilentlyContinue
-check "Node.js installed"                    ($node -ne $null) "winget install OpenJS.NodeJS.LTS"
+# 5. Node (s fallbackem na Program Files)
+$nodePaths = @("$env:ProgramFiles\nodejs\node.exe", "${env:ProgramFiles(x86)}\nodejs\node.exe")
+check "Node.js installed"                    (Test-AppInstalled node $nodePaths) "winget install OpenJS.NodeJS.LTS"
 
-# 6. Python
-$python = Get-Command python -ErrorAction SilentlyContinue
-check "Python installed"                     ($python -ne $null) "winget install Python.Python.3.12"
+# 6. Python (s fallbackem na Program Files)
+$pyPaths = @("$env:ProgramFiles\Python312\python.exe", "$env:ProgramFiles\Python313\python.exe", "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe")
+check "Python installed"                     (Test-AppInstalled python $pyPaths) "winget install Python.Python.3.12"
 
-# 7. VS Code
-check "VS Code installed"                    (Get-Command code -ErrorAction SilentlyContinue) "winget install Microsoft.VisualStudioCode"
+# 7. VS Code (s fallbackem na Program Files)
+$codePaths = @("$env:ProgramFiles\Microsoft VS Code\Code.exe", "$env:LOCALAPPDATA\Programs\Microsoft VS Code\Code.exe")
+check "VS Code installed"                    (Test-AppInstalled code $codePaths) "winget install Microsoft.VisualStudioCode"
 
 # 8. PATH — per-scope analýza
 $sysPathRaw = [Environment]::GetEnvironmentVariable("PATH", "Machine")
@@ -112,7 +123,11 @@ $reqFix = if ($reqMissing.Count -gt 0) {
 } else { "Install required packages" }
 check "Required packages installed ($($reqPkgs.Count - $reqMissing.Count)/$($reqPkgs.Count))" $reqOk $reqFix
 
-# 14. OneDrive redirects — kontrola všech 5 systémových složek přes [Environment]::GetFolderPath()
+# 14. Recommended — reasonix (pokud je nainstalovaný)
+$reasonixOk = Test-AppInstalled reasonix @("$env:LOCALAPPDATA\Programs\Reasonix\reasonix.exe", "$env:ProgramFiles\Reasonix\reasonix.exe")
+check "Reasonix installed"                   $reasonixOk "winget install Reasonix.Reasonix"
+
+# 15. OneDrive redirects — kontrola všech 5 systémových složek přes [Environment]::GetFolderPath()
 $odOk = $true
 $odRedirected = @()
 $odCheckFolders = @{
