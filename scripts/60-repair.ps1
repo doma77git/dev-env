@@ -5,6 +5,11 @@
 # RUN:    ./60-repair.ps1 -WhatIf      (dry run / suchý běh)
 #         ./60-repair.ps1 -Force       (apply / aplikovat)
 #         ./60-repair.ps1 -Confirm     (potvrzovat každou změnu)
+# INPUT:  -Force (skip confirmation), -SkipBackup (testing only)
+#         -WhatIf (preview only)
+# OUTPUT: Exit code 0=ok, 1=issues remain
+#         Log in ~/.dev-env/logs/repair-*.log
+#         Backup in ~/.dev-env/backups/<timestamp>/
 # ==============================================================
 [CmdletBinding(SupportsShouldProcess)]
 param(
@@ -15,6 +20,15 @@ param(
 Write-Host ">>> PHASE 60 — ENVIRONMENT REPAIR / OPRAVY" -ForegroundColor Green
 Write-Host "  🔐  KFM safety: $(if(-not $Force){'ACTIVE (vyžaduje -Force pro KFM opravy)'}else{'VYPNUTO (Force mód)'})" -ForegroundColor DarkGray
 if ($SkipBackup) { Write-Host "  💾  Backup: SKIP (testovací mód)" -ForegroundColor DarkGray }
+
+# ─── SafeMode check ──────────────────────────────────────────
+$profileCfgPath = Join-Path $env:USERPROFILE ".dev-env" "config" "profile.json"
+$profileCfg = if (Test-Path $profileCfgPath) { try { Get-Content $profileCfgPath -Raw | ConvertFrom-Json } catch { $null } } else { $null }
+if ($profileCfg -and $profileCfg.safeMode -and -not $Force) {
+    Write-Host "  ❌  SAFE MODE ACTIVE ($($profileCfg.type)) - repairs blocked" -ForegroundColor Red
+    Write-Host "      Use -Force to override" -ForegroundColor Yellow
+    exit 1
+}
 
 # ─── Logger ─────────────────────────────────────────────────────
 $logDir = Join-Path $env:USERPROFILE ".dev-env" "logs"
@@ -178,8 +192,12 @@ function Save-RepairState {
 }
 
 # Backup před kritickými změnami
+$backup = $null
 if (-not $SkipBackup -and $PSCmdlet.ShouldProcess("Configuration backup", "Create backup before repair")) {
     $backup = Backup-Configuration
+    Write-Log "Backup created: $($backup.backupDir)" "INFO"
+} else {
+    Write-Log "Backup skipped (SkipBackup=$SkipBackup)" "DEBUG"
 }
 $fixes = 0; $issues = 0
 
@@ -283,7 +301,7 @@ if ($totalDupes -gt 0) {
                 $afterPath = $env:PATH -split ';' | Where-Object { $_ -ne '' }
                 $remainingDupes = $afterPath | Group-Object | Where-Object Count -gt 1
                 if ($remainingDupes) { throw "Duplicisty stále existují: $($remainingDupes.Name -join ', ')" }
-            } -ActionName "PATH dedup" -BackupPath $backup.backupDir -VerifyAction { $true }
+            } -ActionName "PATH dedup" -BackupPath $(if ($backup) { $backup.backupDir } else { $null }) -VerifyAction { $true }
             
             if ($repairOk) {
                 Write-Host "  ✅  User PATH vyčištěna: $repairDedup duplicit odstraněno" -ForegroundColor Green
@@ -344,7 +362,7 @@ if ($totalMissing -gt 0) {
                     try { -not (Test-Path ([Environment]::ExpandEnvironmentVariables($_))) } catch { $true }
                 }
                 if ($afterMissing) { throw "Stále existují chybějící cesty: $($afterMissing -join '; ')" }
-            } -ActionName "PATH cleanup ($($usrMissing.Count) missing)" -BackupPath $backup.backupDir
+            } -ActionName "PATH cleanup ($($usrMissing.Count) missing)" -BackupPath $(if ($backup) { $backup.backupDir } else { $null })
             
             if ($repairOk) { $fixes++ }
         }
@@ -539,7 +557,7 @@ if ($redirectedFolders.Count -gt 0 -and -not $kfmDetected -and $Force) {
         }
         Write-Log "OneDrive redirect fix: ověřeno v registru, $($redirectedFolders.Count) složek vráceno" "INFO"
         Write-Host "  ✅  Registry aktualizován — změny se projeví po odhlášení" -ForegroundColor Green
-    } -ActionName "OneDrive folder restore ($($redirectedFolders.Count) folders)" -BackupPath $backup.backupDir
+    } -ActionName "OneDrive folder restore ($($redirectedFolders.Count) folders)" -BackupPath $(if ($backup) { $backup.backupDir } else { $null })
     
     if (-not $repairOk) {
         Write-Log "OneDrive folder restore SELHALO" "ERROR"
