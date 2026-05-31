@@ -61,6 +61,7 @@ $Categories = [ordered]@{
             @{ name = "notepad++";winget = "Notepad++.Notepad++";        cmd = "notepad++";desc = "Notepad++ editor" }
             @{ name = "gh";       winget = "GitHub.cli";                 cmd = "gh";       desc = "GitHub CLI" }
             @{ name = "curl";     winget = "curl";                       cmd = "curl";     desc = "cURL" }
+            @{ name = "reasonix";winget = "Reasonix.Reasonix";           cmd = "reasonix"; desc = "Reasonix AI coding assistant" }
         )
     }
     optional = @{
@@ -152,6 +153,7 @@ function Test-AppInstalled {
         "wt"        = @("$local\Microsoft\WindowsApps\wt.exe")
         "code"      = @("$pf\Microsoft VS Code\Code.exe", "$local\Programs\Microsoft VS Code\Code.exe")
         "gh"        = @("$pf\GitHub CLI\gh.exe")
+        "reasonix"  = @("$local\Programs\Reasonix\reasonix.exe", "$pf\Reasonix\reasonix.exe")
     }
     
     if ($knownPaths.ContainsKey($AppName)) {
