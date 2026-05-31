@@ -119,7 +119,8 @@ if (Test-Path $InventoryPath) {
 # ─── Detekce nainstalovaných aplikací ─────────────────────────
 function Test-AppInstalled {
     param([string]$AppName)
-    # 1. Get-Command (PATH)
+    
+    # 1. Najít cmd z kategorie
     $catFound = $null
     foreach ($key in $Categories.Keys) {
         foreach ($a in $Categories[$key].apps) {
@@ -127,11 +128,41 @@ function Test-AppInstalled {
         }
         if ($catFound) { break }
     }
-    if ($catFound) {
-        if (Get-Command $catFound.cmd -ErrorAction SilentlyContinue) { return $true }
+    if (-not $catFound) { return $false }
+    
+    # 2. Get-Command (PATH)
+    if (Get-Command $catFound.cmd -ErrorAction SilentlyContinue) { return $true }
+    
+    # 3. Fallback: známé instalační cesty (pro appky ne v PATH)
+    $pf = ${env:ProgramFiles}
+    $pfx86 = ${env:ProgramFiles(x86)}
+    $local = ${env:LOCALAPPDATA}
+    $progs = "${env:ProgramW6432}"
+    
+    $knownPaths = @{
+        "chrome"    = @("$pfx86\Google\Chrome\Application\chrome.exe", "$pf\Google\Chrome\Application\chrome.exe", "$local\Google\Chrome\Application\chrome.exe")
+        "7z"        = @("$pf\7-Zip\7z.exe", "$pfx86\7-Zip\7z.exe")
+        "notepad++" = @("$pf\Notepad++\notepad++.exe", "$pfx86\Notepad++\notepad++.exe")
+        "nvim"      = @("$pf\Neovim\bin\nvim.exe", "$local\Neovim\bin\nvim.exe")
+        "docker"    = @("$pf\Docker\Docker\Docker Desktop.exe", "$pf\Docker\Docker\resources\bin\docker.exe")
+        "starship"  = @("$pf\starship\bin\starship.exe")
+        "vs2022"    = @("$pf\Microsoft Visual Studio\2022\Community\Common7\IDE\devenv.exe")
+        "rider"     = @("$pf\JetBrains\JetBrains Rider\bin\rider64.exe", "$local\JetBrains\JetBrains Rider\bin\rider64.exe")
+        "postman"   = @("$pf\Postman\Postman.exe", "$local\Postman\Postman.exe")
+        "wt"        = @("$local\Microsoft\WindowsApps\wt.exe")
+        "code"      = @("$pf\Microsoft VS Code\Code.exe", "$local\Programs\Microsoft VS Code\Code.exe")
+        "gh"        = @("$pf\GitHub CLI\gh.exe")
     }
-    # 2. Fallback: inventář
+    
+    if ($knownPaths.ContainsKey($AppName)) {
+        foreach ($p in $knownPaths[$AppName]) {
+            if (Test-Path $p) { return $true }
+        }
+    }
+    
+    # 4. Fallback: inventář
     if ($Inventory.$AppName -eq $true) { return $true }
+    
     return $false
 }
 
