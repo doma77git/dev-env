@@ -526,22 +526,19 @@ if ($redirectedFolders.Count -gt 0 -and -not $kfmDetected -and $Force) {
             $fixes++
         }
         
-        # Ověření: zkontrolovat, že už žádná složka není v OneDrivu
+        # Ověření: registry je okamžitý, [Environment]::GetFolderPath() cachuje do odhlášení
         $stillRedirected = @()
-        $verifyFolders = @{
-            "Desktop"   = [Environment]::GetFolderPath("Desktop")
-            "Documents" = [Environment]::GetFolderPath("MyDocuments")
-            "Pictures"  = [Environment]::GetFolderPath("MyPictures")
-            "Music"     = [Environment]::GetFolderPath("MyMusic")
-            "Videos"    = [Environment]::GetFolderPath("MyVideos")
-        }
-        foreach ($v in $verifyFolders.Keys) {
-            if ($verifyFolders[$v] -match 'OneDrive') { $stillRedirected += $v }
+        $regKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders"
+        foreach ($rf in $redirectedFolders) {
+            $regVal = if (Test-Path $regKey) { (Get-ItemProperty $regKey -Name $rf.en -ErrorAction SilentlyContinue).$rf.en } else { $null }
+            if (-not ($regVal -and $regVal -notmatch 'OneDrive')) { $stillRedirected += $rf.cz }
         }
         if ($stillRedirected.Count -gt 0) {
-            throw "Stále přesměrováno: $($stillRedirected -join ', ')"
+            Write-Log "Registry verification failed for: $($stillRedirected -join ', ')" "ERROR"
+            throw "Stále přesměrováno dle registru: $($stillRedirected -join ', ')"
         }
-        Write-Log "OneDrive redirect fix: ověřeno, $($redirectedFolders.Count) složek vráceno" "INFO"
+        Write-Log "OneDrive redirect fix: ověřeno v registru, $($redirectedFolders.Count) složek vráceno" "INFO"
+        Write-Host "  ✅  Registry aktualizován — změny se projeví po odhlášení" -ForegroundColor Green
     } -ActionName "OneDrive folder restore ($($redirectedFolders.Count) folders)" -BackupPath $backup.backupDir
     
     if (-not $repairOk) {
