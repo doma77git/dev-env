@@ -1,21 +1,77 @@
 #!/usr/bin/env pwsh
 # === scripts/50-setup-home.ps1 ================================
-# ROLE:   Home PC setup — winget install + symlink + folders
-#         Instalace domácího PC
-# RUN:    ./50-setup-home.ps1 -WhatIf    (dry run / suchý běh)
-#         ./50-setup-home.ps1 -Force     (apply / aplikovat)
-#         ./50-setup-home.ps1 -Confirm   (potvrzovat každou změnu)
+# ROLE:   Home PC setup — winget install by category + symlink + folders
+#         Instalace domácího PC podle kategorií
+# RUN:    ./50-setup-home.ps1 -WhatIf
+#         ./50-setup-home.ps1 -IncludeRequired -IncludeRecommended
+#         ./50-setup-home.ps1 -Force
 # ==============================================================
 [CmdletBinding(SupportsShouldProcess)]
-param([switch]$Force)
+param(
+    [switch]$IncludeRequired,        # Nutné (výchozí: dle preferences)
+    [switch]$IncludeRecommended,     # Doporučené (výchozí: dle preferences)
+    [switch]$IncludeOptional,        # Nepovinné
+    [switch]$IncludeDev,             # Vývojářské
+    [switch]$Force
+)
 
-$profile = Get-Content (Join-Path $PSScriptRoot ".." "profiles" "home.json") -Raw | ConvertFrom-Json
+$profilePath = Join-Path $PSScriptRoot ".." "profiles" "home.json"
+$profile = Get-Content $profilePath -Raw | ConvertFrom-Json
+
+# ─── Software categories (sdílená data s 10-detect.ps1) ──────
+$softwareCategories = [ordered]@{
+    required = @(
+        @{ name = "git";    winget = "Git.Git";                  desc = "Git version control" }
+        @{ name = "pwsh";   winget = "Microsoft.PowerShell";      desc = "PowerShell 7" }
+        @{ name = "wt";     winget = "Microsoft.WindowsTerminal"; desc = "Windows Terminal" }
+    )
+    recommended = @(
+        @{ name = "code";     winget = "Microsoft.VisualStudioCode"; desc = "VS Code editor" }
+        @{ name = "7z";       winget = "7zip.7zip";                  desc = "7-Zip archiver" }
+        @{ name = "chrome";   winget = "Google.Chrome";              desc = "Chrome browser" }
+        @{ name = "notepad++";winget = "Notepad++.Notepad++";        desc = "Notepad++ editor" }
+        @{ name = "gh";       winget = "GitHub.cli";                 desc = "GitHub CLI" }
+        @{ name = "curl";     winget = "curl";                       desc = "cURL" }
+    )
+    optional = @(
+        @{ name = "nvim";     winget = "Neovim.Neovim";          desc = "Neovim editor" }
+        @{ name = "docker";   winget = "Docker.DockerDesktop";    desc = "Docker Desktop" }
+        @{ name = "starship"; winget = "Starship.Starship";       desc = "Starship prompt" }
+    )
+    dev = @(
+        @{ name = "node";     winget = "OpenJS.NodeJS.LTS";      desc = "Node.js" }
+        @{ name = "python";   winget = "Python.Python.3.12";     desc = "Python 3.12" }
+        @{ name = "vs2022";   winget = "Microsoft.VisualStudio.2022.Community"; desc = "Visual Studio 2022" }
+        @{ name = "rider";    winget = "JetBrains.Rider";        desc = "JetBrains Rider" }
+        @{ name = "postman";  winget = "Postman.Postman";        desc = "Postman API" }
+    )
+}
 
 Write-Host ">>> PHASE 50 — PACKAGE SETUP (home) / INSTALACE" -ForegroundColor Green
 Write-Host "  Home PC — winget install, folders, git config, autocrlf" -ForegroundColor DarkGray
 Write-Host ""
 
-# 1. HOME env variable
+# ─── Načtení preferencí ───────────────────────────────────────
+$prefFile = Join-Path $env:USERPROFILE ".dev-env" "software-preferences.json"
+if (Test-Path $prefFile) {
+    try { $prefs = Get-Content $prefFile -Raw | ConvertFrom-Json } catch { $prefs = $null }
+}
+if (-not $prefs) {
+    $prefs = [pscustomobject]@{ categories = [pscustomobject]@{ required=$true; recommended=$true; optional=$false; dev=$false } }
+}
+if (-not $PSBoundParameters.ContainsKey('IncludeRequired'))    { $IncludeRequired = $prefs.categories.required }
+if (-not $PSBoundParameters.ContainsKey('IncludeRecommended')) { $IncludeRecommended = $prefs.categories.recommended }
+if (-not $PSBoundParameters.ContainsKey('IncludeOptional'))    { $IncludeOptional = $prefs.categories.optional }
+if (-not $PSBoundParameters.ContainsKey('IncludeDev'))         { $IncludeDev = $prefs.categories.dev }
+
+$activeCats = @()
+if ($IncludeRequired)    { $activeCats += "🔴REQ" }
+if ($IncludeRecommended) { $activeCats += "🟡REC" }
+if ($IncludeOptional)    { $activeCats += "🟢OPT" }
+if ($IncludeDev)         { $activeCats += "🔵DEV" }
+Write-Host "  Kategorie: $($activeCats -join ' ')" -ForegroundColor DarkGray
+
+# ─── 1. HOME env variable ────────────────────────────────────
 Write-Host "5.1 HOME environment variable" -ForegroundColor Cyan
 if ($env:HOME -and $env:HOME -ne $env:USERPROFILE) {
     Write-Host "  HOME = $env:HOME" -ForegroundColor Green
@@ -24,31 +80,24 @@ if ($env:HOME -and $env:HOME -ne $env:USERPROFILE) {
 } else {
     Write-Host "  HOME not set / nenastaveno" -ForegroundColor Red
     if ($PSCmdlet.ShouldProcess("$env:USERPROFILE", "Set HOME environment variable")) {
-        Write-Host "  Setting HOME = $env:USERPROFILE" -ForegroundColor Yellow
         [Environment]::SetEnvironmentVariable("HOME", $env:USERPROFILE, "User")
+        Write-Host "  FIXED" -ForegroundColor Green
     }
 }
 
-# 2. Directories / složky
+# ─── 2. Directories / složky ────────────────────────────────
 Write-Host "5.2 Directories / složky" -ForegroundColor Cyan
 $dirs = @(
-    "~\dev\projects\osobni",
-    "~\dev\projects\ppg",
-    "~\dev\projects\lab",
-    "~\.config\powershell",
-    "~\bin",
-    "~\.dev-env\config",
-    "~\Documents\downloads\_temp",
-    "~\Documents\downloads\keep",
-    "~\Documents\docs\navody",
-    "~\Documents\docs\architektura",
+    "~\dev\projects\osobni", "~\dev\projects\ppg", "~\dev\projects\lab",
+    "~\.config\powershell", "~\bin", "~\.dev-env\config",
+    "~\Documents\downloads\_temp", "~\Documents\downloads\keep",
+    "~\Documents\docs\navody", "~\Documents\docs\architektura",
     "~\Documents\chat-exports"
 )
 foreach ($d in $dirs) {
     $expanded = [Environment]::ExpandEnvironmentVariables($d.Replace("~", $env:USERPROFILE))
-    if (Test-Path $expanded) {
-        Write-Host "  OK  $d" -ForegroundColor Green
-    } else {
+    if (Test-Path $expanded) { Write-Host "  OK  $d" -ForegroundColor Green }
+    else {
         Write-Host "  NEW $d" -ForegroundColor Yellow
         if ($PSCmdlet.ShouldProcess($d, "Create directory")) {
             New-Item -ItemType Directory -Path $expanded -Force | Out-Null
@@ -56,192 +105,78 @@ foreach ($d in $dirs) {
     }
 }
 
-# 3. Packages by category / balíčky podle kategorií
+# ─── 3. Category-based package installation ─────────────────
 Write-Host "5.3 Packages by category / balíčky" -ForegroundColor Cyan
+function Test-Installed($name) { $null -ne (Get-Command $name -ErrorAction SilentlyContinue) }
 
-# Tool detection: PATH first, winget second
-function Test-ToolInstalled {
-    param([string]$ToolName, [string]$WingetId)
-    # Try PATH first (works for built-in tools like curl, and CLI tools)
-    $cmd = $null
-    try { $cmd = Get-Command $ToolName -ErrorAction Stop } catch {}
-    if ($cmd) { return $true }
-    # Fall back to winget
-    if ($WingetId) {
-        $installed = winget list --id $WingetId 2>$null | Select-String -SimpleMatch $WingetId
-        if ($installed) { return $true }
-    }
-    return $false
-}
+$catIcons = @{ required="🔴"; recommended="🟡"; optional="🟢"; dev="🔵" }
+$catLabels = @{ required="NUTNÉ"; recommended="DOPORUČENÉ"; optional="NEPOVINNÉ"; dev="VÝVOJÁŘSKÉ" }
+$selectedCats = @()
+if ($IncludeRequired)    { $selectedCats += "required" }
+if ($IncludeRecommended) { $selectedCats += "recommended" }
+if ($IncludeOptional)    { $selectedCats += "optional" }
+if ($IncludeDev)         { $selectedCats += "dev" }
 
-# Winget package ID mapping (for winget install fallback)
-$wingetMap = @{
-    "wt"       = "Microsoft.WindowsTerminal"
-    "pwsh"     = "Microsoft.PowerShell"
-    "chrome"   = "Google.Chrome"
-    "reasonix" = "Reasonix.Reasonix"
-    "deepseek" = "DeepSeek.DeepSeek"
-    "notepad++"= "Notepad++.Notepad++"
-    "code"     = "Microsoft.VisualStudioCode"
-    "nvim"     = "Neovim.Neovim"
-    "git"      = "Git.Git"
-    "gh"       = "GitHub.cli"
-    "node"     = "OpenJS.NodeJS.LTS"
-    "python"   = "Python.Python.3.12"
-    "docker"   = "Docker.DockerDesktop"
-    "curl"     = "curl"
-    "7z"       = "7zip.7zip"
-    "starship" = "Starship.Starship"
-}
-
-# Category definitions
-$categories = [ordered]@{
-    "🖥️  TERMINAL" = @{
-        tools = @("wt", "pwsh")
-        priority = "core"
-        desc = "Minimální kostra — vždy navrženo"
-    }
-    "🌐  BROWSER"  = @{
-        tools = @("chrome")
-        priority = "recommended"
-        desc = "Doporučený prohlížeč"
-    }
-    "🤖  AI"       = @{
-        tools = @("reasonix")
-        priority = "recommended"
-        desc = "AI nástroje — Reasonix doporučen"
-    }
-    "📝  EDITORS"  = @{
-        tools = @("notepad++")
-        priority = "recommended"
-        desc = "Editory — Notepad++ doporučen"
-    }
-    "🔧  PROJECT"  = @{
-        tools = @("git")
-        priority = "recommended"
-        desc = "Projektová manipulace — git doporučen"
-    }
-    "📦  UTILS"    = @{
-        tools = @("curl", "7z")
-        priority = "recommended"
-        desc = "Utility"
-    }
-}
-
-# Process each category
-foreach ($catName in $categories.Keys) {
-    $cat = $categories[$catName]
+$totalInstalled = 0; $totalMissing = 0
+foreach ($cat in $selectedCats) {
     Write-Host ""
-    Write-Host "  $catName — $($cat.desc)" -ForegroundColor DarkCyan
-    
-    $allOk = $true
-    $missing = @()
-    
-    foreach ($tool in $cat.tools) {
-        $pkgId = $wingetMap[$tool]
-        $detected = Test-ToolInstalled -ToolName $tool -WingetId $pkgId
-        if ($detected) {
-            Write-Host "    ✅  $tool ($(if ($pkgId) { $pkgId } else { 'built-in' }))" -ForegroundColor Green
-        } else {
-            Write-Host "    ❌  $tool ($pkgId)" -ForegroundColor Yellow
-            $allOk = $false
-            $missing += $pkgId
-        }
-    }
-    
-    if ($missing.Count -gt 0 -and $PSCmdlet.ShouldProcess($missing -join ', ', "Install packages")) {
-        foreach ($pkgId in $missing) {
-            Write-Host "    Installing $pkgId ..." -ForegroundColor Yellow
-            winget install --id $pkgId --accept-source-agreements 2>&1 | Out-Null
+    Write-Host "  $($catIcons[$cat]) $($catLabels[$cat])" -ForegroundColor Cyan
+    foreach ($pkg in $softwareCategories[$cat]) {
+        $installed = Test-Installed $pkg.name
+        if ($installed) { $totalInstalled++; Write-Host "    ✅  $($pkg.name) ($($pkg.winget))" -ForegroundColor Green }
+        else {
+            $totalMissing++
+            Write-Host "    ❌  $($pkg.name) ($($pkg.winget))" -ForegroundColor Yellow
+            if ($PSCmdlet.ShouldProcess($pkg.name, "Install $($pkg.winget)")) {
+                Write-Host "         🔧 Instaluji ..." -NoNewline -ForegroundColor Cyan
+                try {
+                    $result = winget install --id $pkg.winget --accept-source-agreements --silent 2>&1
+                    if ($LASTEXITCODE -eq 0) { Write-Host " OK" -ForegroundColor Green }
+                    else { Write-Host " FAIL ($LASTEXITCODE)" -ForegroundColor Red }
+                } catch { Write-Host " ERROR: $_" -ForegroundColor Red }
+            }
         }
     }
 }
-
-# AI optional: deepseek
 Write-Host ""
-Write-Host "  🤖  AI (optional) — deepseek" -ForegroundColor DarkGray
-$dsInstalled = Test-ToolInstalled -ToolName "deepseek" -WingetId $wingetMap["deepseek"]
-if ($dsInstalled) {
-    Write-Host "    ✅  deepseek" -ForegroundColor Green
-} else {
-    Write-Host "    ⬚  deepseek — optional, run manually if wanted" -ForegroundColor DarkGray
-}
+Write-Host "  Souhrn: $totalInstalled nainstalováno, $totalMissing chybí" -ForegroundColor $(if($totalMissing -eq 0){'Green'}else{'Yellow'})
 
-# Editors optional: code, nvim
-Write-Host ""
-Write-Host "  📝  EDITORS (optional) — code, nvim" -ForegroundColor DarkGray
-foreach ($opt in @("code", "nvim")) {
-    $optInstalled = Test-ToolInstalled -ToolName $opt -WingetId $wingetMap[$opt]
-    if ($optInstalled) {
-        Write-Host "    ✅  $opt" -ForegroundColor Green
-    } else {
-        Write-Host "    ⬚  $opt — optional" -ForegroundColor DarkGray
-    }
-}
-
-# Project optional: gh, node, python, docker
-Write-Host ""
-Write-Host "  🔧  PROJECT (optional) — gh, node, python, docker" -ForegroundColor DarkGray
-foreach ($opt in @("gh", "node", "python", "docker")) {
-    $optInstalled = Test-ToolInstalled -ToolName $opt -WingetId $wingetMap[$opt]
-    if ($optInstalled) {
-        Write-Host "    ✅  $opt" -ForegroundColor Green
-    } else {
-        Write-Host "    ⬚  $opt — optional" -ForegroundColor DarkGray
-    }
-}
-
-# Utils optional: starship
-Write-Host ""
-Write-Host "  📦  UTILS (optional) — starship" -ForegroundColor DarkGray
-$stInstalled = Test-ToolInstalled -ToolName "starship" -WingetId $wingetMap["starship"]
-if ($stInstalled) {
-    Write-Host "    ✅  starship" -ForegroundColor Green
-} else {
-    Write-Host "    ⬚  starship — optional" -ForegroundColor DarkGray
-}
-
-# 4. Symlink configs / konfigy
+# ─── 4. Config symlinks / symlinky ──────────────────────────
 Write-Host "5.4 Config symlinks / symlinky" -ForegroundColor Cyan
-& "$PSScriptRoot\link-configs.ps1" -WhatIf:$WhatIf -Force:$Force
+$linkScript = Join-Path $PSScriptRoot "link-configs.ps1"
+if (Test-Path $linkScript) { & $linkScript -WhatIf:$WhatIfPreference -Force:$Force }
 
-# 5. Git config / globální nastavení
+# ─── 5. Git config / globální nastavení ────────────────────
 Write-Host "5.5 Git identity / identita" -ForegroundColor Cyan
-# Resolve identity: saved > git-config > profile default
 $identityFile = Join-Path $env:USERPROFILE ".dev-env" "config" "identity.json"
 $savedId = if (Test-Path $identityFile) { try { Get-Content $identityFile -Raw | ConvertFrom-Json } catch { $null } } else { $null }
 if ($savedId -and $savedId.git.email) {
-    $gitName  = $savedId.git.name
-    $gitEmail = $savedId.git.email
+    $gitName = $savedId.git.name; $gitEmail = $savedId.git.email
     Write-Host "  Using saved identity: $gitName <$gitEmail>" -ForegroundColor DarkCyan
 } else {
-    $gitCfgName  = try { git config --global user.name  2>$null } catch { $null }
+    $gitCfgName = try { git config --global user.name 2>$null } catch { $null }
     $gitCfgEmail = try { git config --global user.email 2>$null } catch { $null }
-    if ($gitCfgName -and $gitCfgEmail -and $gitCfgEmail -ne 'jan@novak.cz' -and $gitCfgEmail -ne 'jan.novak@ppg.com') {
-        $gitName  = $gitCfgName
-        $gitEmail = $gitCfgEmail
+    if ($gitCfgName -and $gitCfgEmail) {
+        $gitName = $gitCfgName; $gitEmail = $gitCfgEmail
         Write-Host "  Using git-config identity: $gitName <$gitEmail>" -ForegroundColor DarkCyan
     } else {
-        $gitName  = $profile.identity.git.name
-        $gitEmail = $profile.identity.git.email
-        Write-Host "  Using profile default: $gitName <$gitEmail> (PLACEHOLDER)" -ForegroundColor Yellow
+        $gitName = $profile.identity.git.name; $gitEmail = $profile.identity.git.email
+        Write-Host "  Using profile default: $gitName <$gitEmail>" -ForegroundColor Yellow
     }
 }
 if ($PSCmdlet.ShouldProcess("$gitName <$gitEmail>", "Set git identity")) {
     git config --global user.name "$gitName"
     git config --global user.email "$gitEmail"
-    Write-Host "  Set: $gitName <$gitEmail>" -ForegroundColor Green
-    # Save identity so profile.ps1 detects it on next run
     $null = New-Item -ItemType Directory -Path (Split-Path $identityFile -Parent) -Force
     @{ git = @{ name = $gitName; email = $gitEmail } } | ConvertTo-Json | Set-Content $identityFile -Encoding UTF8
-    Write-Host "  Saved → ~/.dev-env/config/identity.json" -ForegroundColor DarkCyan
+    Write-Host "  Set: $gitName <$gitEmail>" -ForegroundColor Green
 } else {
     $current = git config --global user.name 2>$null
     $currentEmail = git config --global user.email 2>$null
     Write-Host "  Current: $current <$currentEmail>" -ForegroundColor Yellow
 }
 
-# 6. Git autocrlf / konce řádků
+# ─── 6. Git autocrlf ────────────────────────────────────────
 Write-Host "5.6 Git core.autocrlf / konce řádků" -ForegroundColor Cyan
 $currentAutocrlf = git config --global core.autocrlf 2>$null
 if ($currentAutocrlf -eq "input") {
@@ -254,10 +189,20 @@ if ($currentAutocrlf -eq "input") {
     }
 }
 
+# ─── Uložit preference ──────────────────────────────────────
+@{
+    categories = @{
+        required    = [bool]$IncludeRequired
+        recommended = [bool]$IncludeRecommended
+        optional    = [bool]$IncludeOptional
+        dev         = [bool]$IncludeDev
+    }
+} | ConvertTo-Json -Depth 3 | Out-File $prefFile -Encoding UTF8
+
 Write-Host ""
+Write-Host "  💾  Preference uloženy: $prefFile" -ForegroundColor DarkGray
 Write-Host ""
 Write-Host ">>> 50 — package-setup (home) OK" -ForegroundColor Green
 if ($Force)   { Write-Host "  packages installed, proceeding with phase 60" -ForegroundColor DarkGray }
-if ($WhatIf)  { Write-Host "  dry-run complete, review above then run with -Force" -ForegroundColor DarkGray }
-if (-not $Force -and -not $WhatIf) { Write-Host "  review above then run with -WhatIf or -Force" -ForegroundColor DarkGray }
+if ($WhatIfPreference) { Write-Host "  dry-run complete" -ForegroundColor DarkGray }
 Write-Host "=== DONE ===" -ForegroundColor Green

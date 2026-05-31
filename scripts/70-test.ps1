@@ -98,7 +98,21 @@ if (Test-Path $profilesDir) {
 }
 check "Profile JSONs valid"                  $profilesOk "Validate profiles/*.json syntax"
 
-# 13. OneDrive redirects — kontrola všech 5 systémových složek přes [Environment]::GetFolderPath()
+# 13. Required packages installed
+$reqPkgs = @("git","pwsh")
+$reqOk = $true
+$reqMissing = @()
+foreach ($pkg in $reqPkgs) {
+    if (-not (Get-Command $pkg -ErrorAction SilentlyContinue)) {
+        $reqOk = $false; $reqMissing += $pkg
+    }
+}
+$reqFix = if ($reqMissing.Count -gt 0) {
+    "Chybí: $($reqMissing -join ', ') — spustit: .\scripts\50-setup-home.ps1 -IncludeRequired"
+} else { "Install required packages" }
+check "Required packages installed ($($reqPkgs.Count - $reqMissing.Count)/$($reqPkgs.Count))" $reqOk $reqFix
+
+# 14. OneDrive redirects — kontrola všech 5 systémových složek přes [Environment]::GetFolderPath()
 $odOk = $true
 $odRedirected = @()
 $odCheckFolders = @{

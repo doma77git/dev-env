@@ -63,15 +63,101 @@ $osInfo = [ordered]@{
     lastBoot    = ([DateTime]$os.LastBootUpTime).ToString("yyyy-MM-dd")
 }
 
-# ─── 10.5 Tools ──────────────────────────────────────────────
-$detectTools = @("git","node","python","code","winget","docker","gh","pwsh","curl","7z","nvim","scoop","nvm")
+# ─── 10.5 Software Categories ─────────────────────────────────
+# Definice kategorií: required / recommended / optional / dev
+$softwareCategories = [ordered]@{
+    required = @(
+        @{ name = "git";    winget = "Git.Git";                  test = "Get-Command git -EA 0" }
+        @{ name = "pwsh";   winget = "Microsoft.PowerShell";      test = "Get-Command pwsh -EA 0" }
+        @{ name = "wt";     winget = "Microsoft.WindowsTerminal"; test = "Get-Command wt -EA 0" }
+    )
+    recommended = @(
+        @{ name = "code";     winget = "Microsoft.VisualStudioCode"; test = "Get-Command code -EA 0" }
+        @{ name = "7z";       winget = "7zip.7zip";                  test = "Get-Command 7z -EA 0" }
+        @{ name = "chrome";   winget = "Google.Chrome";              test = "Get-Command chrome -EA 0" }
+        @{ name = "notepad++";winget = "Notepad++.Notepad++";        test = "Get-Command notepad++ -EA 0" }
+        @{ name = "gh";       winget = "GitHub.cli";                 test = "Get-Command gh -EA 0" }
+        @{ name = "curl";     winget = "curl";                       test = "Get-Command curl -EA 0" }
+    )
+    optional = @(
+        @{ name = "nvim";     winget = "Neovim.Neovim";          test = "Get-Command nvim -EA 0" }
+        @{ name = "docker";   winget = "Docker.DockerDesktop";    test = "Get-Command docker -EA 0" }
+        @{ name = "starship"; winget = "Starship.Starship";       test = "Get-Command starship -EA 0" }
+    )
+    dev = @(
+        @{ name = "node";     winget = "OpenJS.NodeJS.LTS";      test = "Get-Command node -EA 0" }
+        @{ name = "python";   winget = "Python.Python.3.12";     test = "Get-Command python -EA 0" }
+        @{ name = "vs2022";   winget = "Microsoft.VisualStudio.2022.Community"; test = "Get-Command devenv -EA 0" }
+        @{ name = "rider";    winget = "JetBrains.Rider";        test = "Get-Command rider -EA 0" }
+        @{ name = "postman";  winget = "Postman.Postman";        test = "Get-Command postman -EA 0" }
+    )
+}
+
+# Detekce stavu nainstalování pro každý balíček
+function Get-SoftwareByCategory {
+    $inventory = [ordered]@{}
+    foreach ($cat in $softwareCategories.Keys) {
+        $items = @()
+        foreach ($pkg in $softwareCategories[$cat]) {
+            $cmd = Get-Command $pkg.name -ErrorAction SilentlyContinue | Select-Object -First 1
+            $installed = $cmd -ne $null
+            $ver = if ($installed) { try { (& $pkg.name --version 2>&1 | Select-Object -First 1) -join ' ' } catch { "?" } } else { $null }
+            $items += [ordered]@{
+                name      = $pkg.name
+                winget    = $pkg.winget
+                installed = $installed
+                version   = $ver
+                path      = if ($cmd) { $cmd.Source } else { $null }
+            }
+        }
+        $inventory[$cat] = [ordered]@{
+            icon      = switch($cat){ "required"{'🔴'} "recommended"{'🟡'} "optional"{'🟢'} "dev"{'🔵'} }
+            label     = switch($cat){ "required"{'NUTNÉ'} "recommended"{'DOPORUČENÉ'} "optional"{'NEPOVINNÉ'} "dev"{'VÝVOJÁŘSKÉ'} }
+            items     = $items
+            total     = $items.Count
+            installed = ($items | Where-Object { $_.installed }).Count
+        }
+    }
+    
+    # Barevný výpis do konzole
+    Write-Host ""
+    Write-Host "─── Software kategorie ──────────────────────────────" -ForegroundColor DarkCyan
+    foreach ($cat in $inventory.Keys) {
+        $info = $inventory[$cat]
+        $color = switch($cat){ "required"{'Red'} "recommended"{'Yellow'} "optional"{'Green'} "dev"{'Cyan'} }
+        Write-Host ""
+        Write-Host "  $($info.icon) $($info.label) — $($info.installed)/$($info.total)" -ForegroundColor $color
+        foreach ($pkg in $info.items) {
+            $status = if ($pkg.installed) { "✅  $($pkg.name)" } else { "❌  $($pkg.name)" }
+            Write-Host "    $status" -NoNewline
+            if ($pkg.version) { Write-Host " v$($pkg.version)" -ForegroundColor DarkGray } else { Write-Host "" }
+        }
+    }
+    
+    # Uložit JSON
+    $invDir = Split-Path (Join-Path $env:USERPROFILE ".dev-env" "software-inventory.json") -Parent
+    if (-not (Test-Path $invDir)) { New-Item -Path $invDir -ItemType Directory -Force | Out-Null }
+    $inventory | ConvertTo-Json -Depth 4 | Out-File (Join-Path $env:USERPROFILE ".dev-env" "software-inventory.json") -Encoding UTF8
+    Write-Log "Software inventory saved ($($inventory.Count) categories)" "INFO"
+    
+    return $inventory
+}
+
+# Provedení detekce
+$swInventory = Get-SoftwareByCategory
+
+# Zpětná kompatibilita: $tools pro starší části skriptu (status, report)
+$detectTools = @()
 $tools = [ordered]@{}
-foreach ($t in $detectTools) {
-    $cmd = Get-Command $t -ErrorAction SilentlyContinue | Select-Object -First 1
-    if ($cmd) {
-        $ver = try { (& $t --version 2>&1 | Select-Object -First 1) -join ' ' } catch { "?" }
-        $tools[$t] = "$ver | $($cmd.Source)"
-    } else { $tools[$t] = $null }
+foreach ($cat in $softwareCategories.Keys) {
+    foreach ($pkg in $softwareCategories[$cat]) {
+        $detectTools += $pkg.name
+        $cmd = Get-Command $pkg.name -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($cmd) {
+            $ver = try { (& $pkg.name --version 2>&1 | Select-Object -First 1) -join ' ' } catch { "?" }
+            $tools[$pkg.name] = "$ver | $($cmd.Source)"
+        } else { $tools[$pkg.name] = $null }
+    }
 }
 
 # ─── 10.6 PATH analýza — 3 úrovně ────────────────────────────
