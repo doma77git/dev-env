@@ -2,6 +2,10 @@
 
 > Auto-loaded for all agents working in this repository.
 > Covers PowerShell scripts, JSON profiles, and documentation conventions.
+>
+> **For AI agents:** Start with `AGENTS.md` — it contains the decision tree,
+> quick commands, error patterns, and validation checklist.
+> This file only has hard rules and conventions.
 
 ---
 

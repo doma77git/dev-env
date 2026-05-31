@@ -3,6 +3,17 @@
 > Auto-loaded by AI coding assistants (Copilot, Claude Code, Cursor, Codex, Reasonix)
 > **Canonical entry point for all AI agents.**
 
+## 🚀 Quick Start for AI (30 seconds)
+
+**New to this repo?** Do this in order:
+1. Read `copilot-instructions.md` (HARD rules — never violate)
+2. Run `./scripts/70-test.ps1` to verify environment
+3. Check `manifest.json` for current version
+4. Use the AI Decision Tree below for user requests
+
+📏 **Context window:** This file ~12 KB. Full context (all docs) ~50 KB — fits Claude 200K / GPT-4 128K.
+Don't load `~/.dev-env/logs/*` unless debugging.
+
 ## 📑 Obsah
 
 1. [Quick Orientation](#-quick-orientation)
@@ -119,6 +130,9 @@ User: "jsem v práci"
 | 📋 **Full validation** | `./scripts/99-validate-bootstrap.ps1` |
 | 📝 **Check logs** | `Get-ChildItem ~/.dev-env/logs/ \| Sort-Object LastWriteTime -Descending \| Select-Object -First 5` |
 | ↩️ **Rollback last operation** | `powershell -File ~/.dev-env/backups/*/RESTORE.ps1` |
+| 🧪 **Test specific phase** | `./scripts/70-test.ps1` |
+| ✅ **Validate JSON report** | `Get-ChildItem ~/.dev-env/report-*.json \| Select-Object -Last 1 \| Get-Content \| Test-Json -SchemaFile ai/schema.json` |
+| 🔄 **Check phase ordering** | `./scripts/00-core-check.ps1; ./scripts/10-detect.ps1 -WhatIf` |
 | 🔄 **Rebuild machines.json** | `Remove-Item ~/.dev-env/machines.json; ./bootstrap.ps1` |
 | 🎯 **Switch profile** | `Set-Content ~/.dev-env/software-preferences.json '{"required":true,"recommended":false}'` |
 | ✅ **Validate JSON report** | `Get-ChildItem ~/.dev-env/report-*.json \| Select-Object -Last 1 \| Get-Content \| Test-Json -SchemaFile ai/schema.json` |
@@ -239,6 +253,33 @@ When starting work in this repo, load files in THIS order:
 12. `ai/copilotchat.md` ← previous AI interactions
 
 **Pro tip:** Use `@` mentions: `@AGENTS.md#AI-Decision-Tree`
+
+## 💬 Example AI Responses
+
+**User:** *"Nainstaluj mi to prostředí"*
+**AI (good):**
+> Nejprve spustím suchý běh, abych zjistil, co se stane:
+> ```powershell
+> $env:DEV_ENV_WHATIF='1'; irm https://raw.githubusercontent.com/doma77git/dev-env/master/bootstrap.ps1 | iex
+> ```
+> Vidím, že chybí git a PowerShell 7. Mám pokračovat s instalací?
+
+**AI (bad):**
+> Spouštím instalaci... *(spustí bootstrap bez -WhatIf — riziko!)*
+
+---
+
+**User:** *"Spadlo to na 50-setup-home.ps1"*
+**AI (good):**
+> Podívám se na logy:
+> ```powershell
+> Get-ChildItem ~/.dev-env/logs/ | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+> Get-Content (Get-ChildItem ~/.dev-env/logs/*.log | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName | Select-Object -Last 50
+> ```
+> A zkontroluji stav pipeline:
+> ```powershell
+> Get-Content ~/.dev-env/last-repair-state.json 2>$null | ConvertFrom-Json
+> ```
 
 ---
 
