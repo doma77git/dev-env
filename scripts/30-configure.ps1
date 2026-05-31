@@ -108,6 +108,29 @@ foreach ($d in $dirs) {
     }
 }
 
+# 8. SSH key (pokud neexistuje)
+$sshDir = Join-Path $env:USERPROFILE ".ssh"
+$sshKeys = Get-ChildItem "$sshDir\id_*" -ErrorAction SilentlyContinue
+if (-not $sshKeys) {
+    Write-Host "  🔑 SSH klíč nenalezen" -ForegroundColor Yellow
+    if (-not $Force) {
+        Write-Host "      Pro vytvoření spustit s -Force" -ForegroundColor DarkGray
+    } elseif ($PSCmdlet.ShouldProcess("SSH key", "Create ed25519 key")) {
+        if (-not (Test-Path $sshDir)) { New-Item -Path $sshDir -ItemType Directory -Force | Out-Null }
+        $email = git config --global user.email 2>$null
+        if (-not $email) { $email = "$env:USERNAME@$env:COMPUTERNAME" }
+        try {
+            ssh-keygen -t ed25519 -C $email -f "$sshDir\id_ed25519" -N '""' 2>&1 | Out-Null
+            if (Test-Path "$sshDir\id_ed25519") {
+                Write-Host "  ✅ SSH klíč vytvořen: $sshDir\id_ed25519" -ForegroundColor Green
+                Write-Host "      Veřejný klíč:" -ForegroundColor DarkGray
+                Get-Content "$sshDir\id_ed25519.pub" | Write-Host -ForegroundColor Cyan
+                $changes++
+            }
+        } catch { Write-Host "  ❌ Selhalo vytvoření SSH klíče: $_" -ForegroundColor Red }
+    }
+} else { Write-Host "  ✅ SSH klíč existuje" -ForegroundColor Green }
+
 Write-Log "30-configure complete: $changes changes" "INFO"
 Write-Host ""
 Write-Host ">>> 30 — configure OK ($changes changes)" -ForegroundColor Green
