@@ -43,13 +43,17 @@ function Invoke-EnvironmentRepair {
         Write-Host "  ❌  $ActionName selhalo: $_" -ForegroundColor Red
         Write-Host "  🔄  Spouštím automatický rollback ..." -ForegroundColor Yellow
         
-        if ($BackupPath) {
+        if ($BackupPath -and (Test-Path $BackupPath)) {
             $restoreScript = Join-Path $BackupPath "RESTORE.ps1"
             if (Test-Path $restoreScript) {
+                Write-Host "  🔄  Rollback ..." -NoNewline -ForegroundColor Yellow
                 try {
                     & $restoreScript
-                    Write-Host "  ✅  Rollback dokončen" -ForegroundColor Green
+                    Write-Host " OK" -ForegroundColor Green
+                    # Zamezit opakovanému rollbacku — smazat backup po obnově
+                    Remove-Item -Path $BackupPath -Recurse -Force -ErrorAction SilentlyContinue
                 } catch {
+                    Write-Host " FAIL" -ForegroundColor Red
                     Write-Host "  ❌  Rollback selhal: $_" -ForegroundColor Red
                     Write-Host "  ⚠  Ruční obnova: powershell -File `"$restoreScript`"" -ForegroundColor Yellow
                 }
@@ -236,7 +240,7 @@ if ($totalDupes -gt 0) {
             $repairDedup = $false
             $repairOk = Invoke-EnvironmentRepair -RepairAction {
                 # Zachovat první výskyt každé cesty v User scope
-                $seen = [ordered]@{}
+                $seen = @{}
                 $dedupedUser = $usrEntries | Where-Object {
                     $normalized = $_.TrimEnd('\')
                     if (-not $seen.ContainsKey($normalized)) { $seen[$normalized] = $true; return $true }
@@ -252,7 +256,7 @@ if ($totalDupes -gt 0) {
                 
                 $newPath = $cleanedUser -join ';'
                 [Environment]::SetEnvironmentVariable("PATH", $newPath, "User")
-                $env:PATH = $sysEntries -join ';' + ';' + $newPath
+                $env:PATH = ($sysEntries -join ';') + ';' + $newPath
                 $script:repairDedup = ($usrEntries.Count - $cleanedUser.Count)  # uložit počet pro výpis
                 
                 # Ověření: zkontrolovat, že duplicity zmizely
@@ -313,7 +317,7 @@ if ($totalMissing -gt 0) {
                 $cleanUser = $usrEntries | Where-Object { $_ -notin $usrMissing }
                 $newPath = $cleanUser -join ';'
                 [Environment]::SetEnvironmentVariable("PATH", $newPath, "User")
-                $env:PATH = $sysEntries -join ';' + ';' + $newPath
+                $env:PATH = ($sysEntries -join ';') + ';' + $newPath
                 
                 # Ověření: chybějící cesty už nejsou v runtime PATH
                 $afterMissing = $env:PATH -split ';' | Where-Object { $_ -ne '' } | Where-Object {
