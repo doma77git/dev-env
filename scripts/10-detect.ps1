@@ -216,35 +216,82 @@ if ($primaryPath) {
     Write-Host "  ℹ   OneDrive není nastaven / není nainstalován" -ForegroundColor DarkGray
 }
 
-# 10.7.2 Known Folder Move — přesměrování systémových složek
-$odRedirects = @{}
-$knownFolderMap = [ordered]@{
-    "Desktop"   = "Plocha"
-    "Documents" = "Dokumenty"
-    "Pictures"  = "Obrázky"
-    "Music"     = "Hudba"
-    "Videos"    = "Videa"
-}
-$folderApiMap = @{
-    "Plocha"     = "Desktop"
-    "Dokumenty"  = "MyDocuments"
-    "Obrázky"    = "MyPictures"
-    "Hudba"      = "MyMusic"
-    "Videa"      = "MyVideos"
+# 10.7.1b KFM detekce (musí být před 10.7.2 — potřebujeme $kfmDetected)
+$kfmDetected = $false
+$kfmRegPath = $null
+foreach ($rp in @("HKCU:\Software\Microsoft\OneDrive\Accounts\Personal",
+                  "HKCU:\Software\Microsoft\OneDrive\Accounts\Business1",
+                  "HKCU:\Software\Microsoft\OneDrive\Accounts\Business2")) {
+    if (Test-Path $rp) {
+        $kfmVal = (Get-ItemProperty -Path $rp -Name "IsKFMEnabled" -ErrorAction SilentlyContinue).IsKFMEnabled
+        if ($kfmVal -eq 1) { $kfmDetected = $true; $kfmRegPath = $rp; break }
+    }
 }
 
-if (Test-Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders") {
-    foreach ($enName in $knownFolderMap.Keys) {
-        $czName = $knownFolderMap[$enName]
-        $regValue = (Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders" -Name $enName -ErrorAction SilentlyContinue).$enName
-        $apiKey = $folderApiMap[$czName]
-        $actualPath = [Environment]::GetFolderPath($apiKey)
-        if ($regValue -and $regValue -match 'OneDrive') {
-            $odRedirects[$czName] = $regValue
-            Write-Host "  ✗   $czName → OneDrive" -ForegroundColor Yellow
-        } else {
-            Write-Host "  ✓   $czName → lokální ($actualPath)" -ForegroundColor Green
+# 10.7.2 Known Folder Move — přesměrování systémových složek
+# Používá [Environment]::GetFolderPath() — jediný spolehlivý zdroj na všech locale
+$odRedirects = @{}
+$knownFolderMap = [ordered]@{
+    "Desktop"   = @{ cz = "Plocha";     api = "Desktop";    localFallback = "Desktop" }
+    "Documents" = @{ cz = "Dokumenty";  api = "MyDocuments"; localFallback = "Documents" }
+    "Pictures"  = @{ cz = "Obrázky";    api = "MyPictures"; localFallback = "Pictures" }
+    "Music"     = @{ cz = "Hudba";      api = "MyMusic";    localFallback = "Music" }
+    "Videos"    = @{ cz = "Videa";      api = "MyVideos";   localFallback = "Videos" }
+}
+
+foreach ($enName in $knownFolderMap.Keys) {
+    $info = $knownFolderMap[$enName]
+    $czName = $info.cz
+    $resolvedPath = [Environment]::GetFolderPath($info.api)
+    $expectedLocal = Join-Path $env:USERPROFILE $info.localFallback
+    $redirectType = ""
+    
+    if ($resolvedPath -match 'OneDrive') {
+        # Je v OneDrivu — zjistit typ
+        $odRedirects[$czName] = $resolvedPath
+        
+        # Typ: registry check
+        $regVal = $null
+        $regKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders"
+        if (Test-Path $regKey) {
+            $regVal = (Get-ItemProperty $regKey -Name $enName -ErrorAction SilentlyContinue).$enName
         }
+        
+        # Typ: symlink check
+        $localPath = Join-Path $env:USERPROFILE $info.localFallback
+        $isSymlink = $false
+        if (Test-Path $localPath) {
+            $item = Get-Item $localPath -Force -ErrorAction SilentlyContinue
+            if ($item.LinkType) { $isSymlink = $true }
+        }
+        
+        $redirectType = switch ($true) {
+            $kfmDetected  { "KFM" }
+            $isSymlink    { "SYMLINK" }
+            $regVal       { "KFM (manual)" }
+            default       { "UNKNOWN" }
+        }
+        
+        Write-Host "  ✗   $czName → OneDrive [$redirectType]" -ForegroundColor Yellow
+        Write-Host "       Cesta: $resolvedPath" -ForegroundColor DarkGray
+        if ($kfmDetected) {
+            Write-Host "       ⚠  KFM aktivní — vypnout v OneDrive nastavení" -ForegroundColor Red
+        } elseif ($isSymlink) {
+            Write-Host "       🔗  Symlink — lze bezpečně odstranit" -ForegroundColor Yellow
+        } else {
+            Write-Host "       ℹ   Ruční přesun — lze vrátit zpět" -ForegroundColor DarkGray
+        }
+    } else {
+        Write-Host "  ✓   $czName → lokální ($resolvedPath)" -ForegroundColor Green
+    }
+}
+
+# 10.7.2b Detailní symlink detekce pro Desktop (pokud není v OneDrivu)
+$desktopLocal = Join-Path $env:USERPROFILE "Desktop"
+if (-not ($odRedirects.Keys -contains "Plocha") -and (Test-Path $desktopLocal)) {
+    $desktopItem = Get-Item $desktopLocal -Force -ErrorAction SilentlyContinue
+    if ($desktopItem.LinkType) {
+        Write-Host "  🔗  Desktop: symlink/junction → $($desktopItem.Target)" -ForegroundColor Yellow
     }
 }
 
@@ -268,25 +315,9 @@ if ($primaryPath -and (Test-Path $primaryPath)) {
     }
 }
 
-# 10.7.4 KFM (Known Folder Move) — detailní detekce typu přesměrování
+# 10.7.4 KFM (Known Folder Move) — výpis stavu (detekce již proběhla v 10.7.1b)
 Write-Host ""
 Write-Host "  ─── KFM analýza ──────────────────────────────────" -ForegroundColor DarkCyan
-
-# Detekce KFM z registru OneDrive
-$kfmDetected = $false
-$kfmRegPath = $null
-foreach ($rp in @("HKCU:\Software\Microsoft\OneDrive\Accounts\Personal",
-                  "HKCU:\Software\Microsoft\OneDrive\Accounts\Business1",
-                  "HKCU:\Software\Microsoft\OneDrive\Accounts\Business2")) {
-    if (Test-Path $rp) {
-        $kfmValue = (Get-ItemProperty -Path $rp -Name "IsKFMEnabled" -ErrorAction SilentlyContinue).IsKFMEnabled
-        if ($kfmValue -eq 1) {
-            $kfmDetected = $true
-            $kfmRegPath = $rp
-            break
-        }
-    }
-}
 
 if ($kfmDetected) {
     Write-Host "  🔴  Known Folder Move: AKTIVNÍ (IsKFMEnabled=1)" -ForegroundColor Red
@@ -297,14 +328,17 @@ if ($kfmDetected) {
     Write-Host "  🟢  Known Folder Move: neaktivní" -ForegroundColor Green
 }
 
-# Detekce typu odkazu (symlink vs normální složka)
-$desktopLocal = Join-Path $env:USERPROFILE "Desktop"
-if (Test-Path $desktopLocal) {
-    $desktopItem = Get-Item $desktopLocal -Force -ErrorAction SilentlyContinue
-    if ($desktopItem.LinkType) {
-        Write-Host "  🔗  Desktop: symlink/junction ($($desktopItem.Target))" -ForegroundColor Yellow
-    } else {
-        Write-Host "  📁  Desktop: běžná složka" -ForegroundColor Green
+# Souhrn přesměrovaných složek
+if ($odRedirects.Count -gt 0) {
+    Write-Host ""
+    Write-Host "  ─── PŘESMĚROVANÉ SLOŽKY ────────────────────────" -ForegroundColor DarkCyan
+    $redirectedNames = $odRedirects.Keys -join ', '
+    Write-Host "  ⚠  $($odRedirects.Count) složek v OneDrivu: $redirectedNames" -ForegroundColor Yellow
+    $totalSize = if ($odSize) { [math]::Round($odSize.Sum / 1MB, 0) } else { "?" }
+    Write-Host "  📦  Celkem ~$totalSize MB dat k přesunu" -ForegroundColor DarkGray
+    if (-not $kfmDetected) {
+        Write-Host "  ℹ   KFM neaktivní → lze bezpečně vrátit pomocí:" -ForegroundColor Green
+        Write-Host "      .\scripts\60-repair.ps1 -Force" -ForegroundColor Cyan
     }
 }
 

@@ -478,6 +478,81 @@ if ($redirectedFolders.Count -gt 0) {
     Write-Host "  ✅  Žádné složky nejsou přesměrovány do OneDrivu" -ForegroundColor Green
 }
 
+# 4.4 Automatické vrácení přesměrovaných složek (pouze pokud NENÍ KFM)
+if ($redirectedFolders.Count -gt 0 -and -not $kfmDetected -and $Force) {
+    Write-Host ""
+    Write-Host "─── 4.4 Vrácení složek z OneDrivu ─────────────────" -ForegroundColor Cyan
+    
+    $repairOk = Invoke-EnvironmentRepair -RepairAction {
+        foreach ($rf in $redirectedFolders) {
+            Write-Host "  📦  $($rf.cz): přesun zpět ..." -NoNewline -ForegroundColor Yellow
+            
+            # Mapování názvů na lokální cesty
+            $localFolder = switch ($rf.en) {
+                "Desktop"   { Join-Path $env:USERPROFILE "Desktop" }
+                "Documents" { Join-Path $env:USERPROFILE "Documents" }
+                "Pictures"  { Join-Path $env:USERPROFILE "Pictures" }
+                "Music"     { Join-Path $env:USERPROFILE "Music" }
+                "Videos"    { Join-Path $env:USERPROFILE "Videos" }
+            }
+            $regName = $rf.en
+            
+            # 1. Kopírovat soubory z OneDrivu do lokální složky
+            if ((Test-Path $rf.path) -and (Get-ChildItem $rf.path -ErrorAction SilentlyContinue)) {
+                if (-not (Test-Path $localFolder)) {
+                    New-Item -Path $localFolder -ItemType Directory -Force | Out-Null
+                }
+                Copy-Item -Path "$($rf.path)\*" -Destination $localFolder -Recurse -Force -ErrorAction Stop
+                Write-Host " OK" -NoNewline -ForegroundColor Green
+            } else {
+                Write-Host " (prázdná)" -NoNewline -ForegroundColor DarkGray
+            }
+            
+            # 2. Přesměrovat registry zpět na lokální cestu
+            $regKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders"
+            if (Test-Path $regKey) {
+                Set-ItemProperty -Path $regKey -Name $regName -Value $localFolder -ErrorAction Stop
+                Write-Host " reg" -NoNewline -ForegroundColor DarkGray
+            }
+            
+            # 3. Také nastavit pro Shell Folders (ne User Shell Folders)
+            $regKey2 = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders"
+            if (Test-Path $regKey2) {
+                Set-ItemProperty -Path $regKey2 -Name $regName -Value $localFolder -ErrorAction SilentlyContinue
+            }
+            
+            Write-Host " ✅" -ForegroundColor Green
+            Write-Log "OneDrive $($rf.cz) vraceno: $($rf.path) → $localFolder" "INFO"
+            $fixes++
+        }
+        
+        # Ověření: zkontrolovat, že už žádná složka není v OneDrivu
+        $stillRedirected = @()
+        $verifyFolders = @{
+            "Desktop"   = [Environment]::GetFolderPath("Desktop")
+            "Documents" = [Environment]::GetFolderPath("MyDocuments")
+            "Pictures"  = [Environment]::GetFolderPath("MyPictures")
+            "Music"     = [Environment]::GetFolderPath("MyMusic")
+            "Videos"    = [Environment]::GetFolderPath("MyVideos")
+        }
+        foreach ($v in $verifyFolders.Keys) {
+            if ($verifyFolders[$v] -match 'OneDrive') { $stillRedirected += $v }
+        }
+        if ($stillRedirected.Count -gt 0) {
+            throw "Stále přesměrováno: $($stillRedirected -join ', ')"
+        }
+        Write-Log "OneDrive redirect fix: ověřeno, $($redirectedFolders.Count) složek vráceno" "INFO"
+    } -ActionName "OneDrive folder restore ($($redirectedFolders.Count) folders)" -BackupPath $backup.backupDir
+    
+    if (-not $repairOk) {
+        Write-Log "OneDrive folder restore SELHALO" "ERROR"
+    }
+} elseif ($redirectedFolders.Count -gt 0 -and $kfmDetected -and $Force) {
+    Write-Log "OneDrive KFM active - cannot auto-fix, skipping" "WARN"
+    Write-Host "  ⚠  KFM aktivní — automatická oprava není možná" -ForegroundColor Yellow
+    Write-Host "      Vypněte ručně v OneDrive → Nastavení → Zálohování" -ForegroundColor Cyan
+}
+
 # 5. SSH keys existence
 if (-not (Test-Path "$env:USERPROFILE\.ssh")) {
     $issues++

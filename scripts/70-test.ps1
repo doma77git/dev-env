@@ -98,28 +98,27 @@ if (Test-Path $profilesDir) {
 }
 check "Profile JSONs valid"                  $profilesOk "Validate profiles/*.json syntax"
 
-# 13. OneDrive redirects — kontrola všech 5 systémových složek
+# 13. OneDrive redirects — kontrola všech 5 systémových složek přes [Environment]::GetFolderPath()
 $odOk = $true
 $odRedirected = @()
-$knownFolderCheck = @{
-    "Desktop"   = "Plocha"
-    "Documents" = "Dokumenty"
-    "Pictures"  = "Obrázky"
-    "Music"     = "Hudba"
-    "Videos"    = "Videa"
+$odCheckFolders = @{
+    "Desktop"   = @{ api = "Desktop";    cz = "Plocha" }
+    "Documents" = @{ api = "MyDocuments"; cz = "Dokumenty" }
+    "Pictures"  = @{ api = "MyPictures"; cz = "Obrázky" }
+    "Music"     = @{ api = "MyMusic";    cz = "Hudba" }
+    "Videos"    = @{ api = "MyVideos";   cz = "Videa" }
 }
-if (Test-Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders") {
-    foreach ($enName in $knownFolderCheck.Keys) {
-        $czName = $knownFolderCheck[$enName]
-        $v = (Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders" -Name $enName -ErrorAction SilentlyContinue).$enName
-        if ($v -and $v -match 'OneDrive') {
-            $odOk = $false
-            $odRedirected += $czName
-        }
+foreach ($key in $odCheckFolders.Keys) {
+    $info = $odCheckFolders[$key]
+    $resolvedPath = [Environment]::GetFolderPath($info.api)
+    if ($resolvedPath -match 'OneDrive') {
+        $odOk = $false
+        $odRedirected += $info.cz
     }
 }
 $odFixMsg = if ($odRedirected.Count -gt 0) {
-    "OneDrive zalohuje: $($odRedirected -join ', ') — vypnout v OneDrive -> Nastaveni -> Zalohovani -> Spravovat zalohovani"
+    $odList = $odRedirected -join ', '
+    "OneDrive zalohuje: $odList — spustit: .\scripts\60-repair.ps1 -Force"
 } else {
     "Turn off OneDrive backup"
 }
