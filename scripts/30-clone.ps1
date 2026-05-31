@@ -41,12 +41,20 @@ if ((Test-Path $RepoDir) -and (Test-Path "$RepoDir\.git")) {
     # Existing repo — pull
     Write-Host "  Repo exists — pulling latest ..." -ForegroundColor Yellow
     try {
+        # Nejprve zkontrolovat lokální změny
+        $localChanges = git -C $RepoDir status --porcelain 2>$null
+        if ($localChanges -and -not $Force) {
+            Write-Host "  ⚠  Lokální změny nalezeny — použij -Force pro přepsání" -ForegroundColor Yellow
+            Write-Host "      $($localChanges.Count) souborů změněno" -ForegroundColor DarkGray
+        }
+        
         git -C $RepoDir fetch origin
         git -C $RepoDir checkout master 2>$null
-        git -C $RepoDir pull origin master
-        # Force checkout HEAD — remove and recreate scripts/ to ensure new files
-        Remove-Item -Path (Join-Path $RepoDir "scripts") -Recurse -Force -ErrorAction SilentlyContinue
-        git -C $RepoDir checkout HEAD -- scripts/ 2>$null
+        if ($PSCmdlet.ShouldProcess("$RepoDir", "Pull latest changes")) {
+            git -C $RepoDir pull origin master
+            # Reset scripts/ k aktuální verzi z masteru
+            git -C $RepoDir checkout HEAD -- scripts/ 2>$null
+        }
         # Fix tracking if misconfigured
         $upstream = git -C $RepoDir rev-parse --abbrev-ref '@{upstream}' 2>$null
         if ($upstream -notmatch 'origin/master') {
