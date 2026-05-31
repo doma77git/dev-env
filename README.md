@@ -1,4 +1,32 @@
-# 🧰 dev-env
+# 🧰 dev-env — Pipeline
+
+> ⚡ **Jeden řádek pro kompletní vývojářské prostředí**  
+> `irm https://raw.githubusercontent.com/doma77git/dev-env/master/bootstrap.ps1 | iex`
+
+| Kategorie | Stav |
+|-----------|------|
+| 🔴 Required | ✅ git, pwsh, wt |
+| 🟡 Recommended | ✅ code, 7z, chrome, notepad++, gh, curl, reasonix |
+| 🟢 Optional | ☐ nvim, docker, starship |
+| 🔵 Dev | ☐ node, python, vs2022, rider, postman |
+
+---
+
+## 🚀 Quick Start
+
+```powershell
+# Celý pipeline najednou
+irm https://raw.githubusercontent.com/doma77git/dev-env/master/bootstrap.ps1 | iex
+
+# Nebo lokálně
+cd C:\Users\spravce\.dev-env\repo
+.\scripts\00-menu.ps1
+.\scripts\00-menu.ps1 -WhatIf   # suchý běh
+.\scripts\20-install-software.ps1 -IncludeRequired -Force
+.\scripts\70-test.ps1
+```
+
+---
 
 > One command. Full inventory. All machines.  
 > Jeden příkaz. Plná inventura. Všechny stroje.
