@@ -1,0 +1,77 @@
+# === .github/workflows/validate-agents.yml =====================
+# ROLE:   Validate AGENTS.md phase list matches actual scripts/
+#         Ověří, že dokumentace není v rozporu s realitou
+# ==============================================================
+name: Validate AGENTS.md
+
+on:
+  push:
+    branches: [master, main]
+    paths: ['AGENT.md', 'scripts/*.ps1']
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  validate:
+    name: Check phase sync
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract phase scripts from AGENTS.md
+        shell: pwsh
+        run: |
+          $content = Get-Content AGENT.md -Raw
+          # Find phase table in AGENTS.md
+          $table = $content | Select-String -Pattern '(?<=\| Phase \| Script \| Purpose \|).*?(?=\n\n)' -AllMatches
+          $mdPhases = @()
+          if ($table.Matches) {
+            foreach ($m in $table.Matches) {
+              $lines = $m.Value -split "`n"
+              foreach ($line in $lines) {
+                if ($line -match '\| (\d+)-(\d+) \| scripts/([\w.-]+\.ps1)') {
+                  $mdPhases += @{ num = "$1-$2"; script = $3 }
+                }
+              }
+            }
+          }
+          $mdPhases | ConvertTo-Json | Write-Host
+
+      - name: List actual scripts
+        shell: pwsh
+        run: |
+          $actual = Get-ChildItem scripts/*.ps1 | Where-Object { $_.Name -match '^\d\d-' }
+          $actual | ForEach-Object { Write-Host $_.Name }
+
+      - name: Compare
+        shell: pwsh
+        run: |
+          $errors = @()
+          $content = Get-Content AGENT.md -Raw
+          $table = $content | Select-String -Pattern '(?<=\| Phase \| Script \| Purpose \|).*?(?=\n\n)' -AllMatches
+          if (-not $table.Matches) { Write-Host "No phase table found in AGENT.md"; exit 1 }
+          
+          $mdScripts = @()
+          foreach ($m in $table.Matches) {
+            $lines = $m.Value -split "`n"
+            foreach ($line in $lines) {
+              if ($line -match '\|.*\|.*scripts/([\w.-]+\.ps1)\|') { $mdScripts += $matches[1] }
+            }
+          }
+          
+          $actualScripts = Get-ChildItem scripts/*.ps1 | Where-Object { $_.Name -match '^\d\d-' } | ForEach-Object { $_.Name }
+          
+          # Check scripts in MD but not on disk
+          foreach ($s in $mdScripts) {
+            if ($s -notin $actualScripts) { $errors += "AGENT.md mentions '$s' but file not found in scripts/" }
+          }
+          # Check scripts on disk but not in MD
+          foreach ($s in $actualScripts) {
+            if ($s -notin $mdScripts) { $errors += "Script '$s' exists but is not listed in AGENT.md phase table" }
+          }
+          
+          if ($errors.Count -gt 0) {
+            foreach ($e in $errors) { Write-Host "::warning::$e" }
+            exit 1
+          }
+          Write-Host "✅ AGENT.md phase list matches scripts/ directory" -ForegroundColor Green
