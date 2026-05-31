@@ -1,5 +1,9 @@
 # 🧰 dev-env — Pipeline
 
+[![CI](https://github.com/doma77git/dev-env/actions/workflows/ci.yml/badge.svg)](https://github.com/doma77git/dev-env/actions/workflows/ci.yml)
+[![PowerShell 7+](https://img.shields.io/badge/PowerShell-7+-blue)](https://github.com/PowerShell/PowerShell)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 > ⚡ **Jeden řádek pro kompletní vývojářské prostředí**  
 > `irm https://raw.githubusercontent.com/doma77git/dev-env/master/bootstrap.ps1 | iex`
 
@@ -30,6 +34,48 @@ cd C:\Users\spravce\.dev-env\repo
 
 > One command. Full inventory. All machines.  
 > Jeden příkaz. Plná inventura. Všechny stroje.
+
+## 🔷 Flow diagram
+
+```mermaid
+flowchart TD
+    A[irm bootstrap.ps1 | iex] --> B{git clone/pull}
+    B --> C[00-menu.ps1<br>Auto-countdown 10s]
+    C --> D[Výběr kategorií]
+    D --> E[10-check-software<br>Get-Command + Program Files]
+    E --> F{Chybí SW?}
+    F -->|Ano| G[20-install-software<br>winget install]
+    F -->|Ne| H[30-configure<br>PS profil, git config]
+    G --> H
+    H --> I[50-setup-home<br>HOME, složky, symlinky]
+    I --> J[60-repair<br>PATH, OneDrive, rollback]
+    J --> K[70-test<br>15 testů]
+    K --> L{Vše OK?}
+    L -->|Ano| M[✅ Hotovo]
+    L -->|Ne| N[❌ Log v ~/.dev-env/logs/]
+```
+
+## 🔧 Pipeline fáze
+
+```mermaid
+graph LR
+    subgraph "Detekce"
+        A[🔍 00-core-check]
+        B[📊 10-check-software]
+    end
+    subgraph "Instalace"
+        C[📦 20-install-software]
+        D[⚙️ 30-configure]
+    end
+    subgraph "Setup"
+        E[🏠 50-setup-home]
+        F[🔧 60-repair]
+    end
+    subgraph "Validace"
+        G[🧪 70-test]
+    end
+    A --> B --> C --> D --> E --> F --> G
+```
 
 ---
 
