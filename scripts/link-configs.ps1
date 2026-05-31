@@ -56,20 +56,20 @@ foreach ($link in $links) {
                 New-Item -ItemType SymbolicLink -Path $to -Target $from -Force | Out-Null
                 Write-Host "  LINKED" -ForegroundColor Green
             }
-            if ($WhatIf)  { Write-Host "  [WHATIF] Would relink → $from" -ForegroundColor DarkCyan }
+            if ($WhatIfPreference)  { Write-Host "  [WHATIF] Would relink → $from" -ForegroundColor DarkCyan }
         }
     } else {
         Write-Host "  NEW $($link.To)" -ForegroundColor Yellow
         $parent = Split-Path $to -Parent
         if (-not (Test-Path $parent)) {
             if ($Force)   { New-Item -ItemType Directory -Path $parent -Force | Out-Null }
-            if ($WhatIf)  { Write-Host "  [WHATIF] Would create $parent" -ForegroundColor DarkCyan }
+            if ($WhatIfPreference)  { Write-Host "  [WHATIF] Would create $parent" -ForegroundColor DarkCyan }
         }
         if ($Force)   { 
             try { New-Item -ItemType SymbolicLink -Path $to -Target $from -Force | Out-Null; Write-Host "  LINKED" -ForegroundColor Green }
             catch { Write-Host "  FAIL (need admin for symlink?): $_" -ForegroundColor Red; Write-Host "  Fallback: copy item" -ForegroundColor Yellow; Copy-Item $from $to -Force }
         }
-        if ($WhatIf)  { Write-Host "  [WHATIF] Would symlink $from → $to" -ForegroundColor DarkCyan }
+        if ($WhatIfPreference)  { Write-Host "  [WHATIF] Would symlink $from → $to" -ForegroundColor DarkCyan }
     }
 }
 
