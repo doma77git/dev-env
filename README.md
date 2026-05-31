@@ -11,7 +11,7 @@
 [![Linux](https://img.shields.io/badge/Linux-✅-FCC624)](.)
 
 > ⚡ **Jeden řádek pro kompletní vývojářské prostředí**  
-> `irm https://raw.githubusercontent.com/doma77git/dev-env/master/bootstrap.ps1 | iex`
+> `irm https://raw.githubusercontent.com/doma77git/dev-env/v1.0.0/bootstrap.ps1 | iex`
 
 | Kategorie | Stav |
 |-----------|------|
@@ -31,9 +31,15 @@ irm https://raw.githubusercontent.com/doma77git/dev-env/master/bootstrap.ps1 | i
 # Nebo lokálně
 cd C:\Users\spravce\.dev-env\repo
 .\scripts\00-menu.ps1
-.\scripts\00-menu.ps1 -WhatIf   # suchý běh
-.\scripts\20-install-software.ps1 -IncludeRequired -Force
-.\scripts\70-test.ps1
+.\scripts\00-menu.ps1 -WhatIf                    # suchý běh
+.\scripts\20-install-software.ps1 -IncludeRequired -Force  # instalace
+.\scripts\70-test.ps1                             # 17 testů
+.\scripts\95-dashboard.ps1                        # HTML přehled
+
+# Pokročilé režimy:
+.\bootstrap.ps1 -Quick           # rychlý běh (přeskočí menu)
+.\bootstrap.ps1 -ValidateOnly    # pouze validace + testy
+.\bootstrap.ps1 -WhatIf          # suchý běh (nic nemění)
 ```
 
 ---

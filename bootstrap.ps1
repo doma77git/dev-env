@@ -20,6 +20,28 @@ Write-Host "╔═════════════════════�
 Write-Host "║  DEV-ENV PIPELINE — Bootstrap            ║" -ForegroundColor Cyan
 Write-Host "╚══════════════════════════════════════════╝" -ForegroundColor Cyan
 
+# 0. Smoke test — basic prerequisites before clone
+Write-Host ""
+Write-Host "─── Smoke test ─────────────────────────────────────" -ForegroundColor DarkCyan
+if ($PSVersionTable.PSVersion.Major -lt 7) {
+    Write-Host "  ⚠  PowerShell $($PSVersionTable.PSVersion.Major) detected — PS7+ recommended" -ForegroundColor Yellow
+    Write-Host "      Some features may not work correctly" -ForegroundColor DarkGray
+}
+if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+    Write-Host "  ❌  Git is not installed" -ForegroundColor Red
+    Write-Host "      Install from: https://git-scm.com/downloads" -ForegroundColor Cyan
+    Write-Host "      Or run: winget install Git.Git" -ForegroundColor Cyan
+    exit 1
+} else {
+    $gitVer = try { (& git --version 2>&1 | Select-Object -First 1) -join '' } catch { "?" }
+    Write-Host "  ✅  Git: $gitVer" -ForegroundColor Green
+}
+if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+    Write-Host "  ⚠  winget not found — package installation will be skipped" -ForegroundColor Yellow
+    if (-not $ValidateOnly) { Write-Host "      Install from: https://aka.ms/getwinget" -ForegroundColor DarkGray }
+}
+Write-Host ""
+
 # 1. Clone/pull repo
 if (-not (Test-Path $repoDir)) {
     Write-Host "  📦 Klonování repozitáře ..." -ForegroundColor Yellow
