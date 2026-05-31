@@ -4,6 +4,9 @@
 [![PowerShell 7+](https://img.shields.io/badge/PowerShell-7+-blue)](https://github.com/PowerShell/PowerShell)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![AI Ready](https://img.shields.io/badge/AI-Ready-blue?logo=openai&logoColor=white)](AGENTS.md)
+[![safeMode](https://img.shields.io/badge/safeMode-all%207%20scripts-brightgreen)](scripts/)
+[![tests](https://img.shields.io/badge/tests-17%20checks-blue)](scripts/70-test.ps1)
+[![quality](https://img.shields.io/badge/quality-9.5%2F10-gold)](AGENTS.md)
 [![Windows](https://img.shields.io/badge/Windows-✅-0078D4)](.)
 [![Linux](https://img.shields.io/badge/Linux-✅-FCC624)](.)
 
