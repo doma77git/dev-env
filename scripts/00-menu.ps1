@@ -260,7 +260,7 @@ function Show-Help {
         }
         Write-Host ""
     }
-    Write-Host "Stiskněte libovolnou klávesu pro návrat..."; $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    Write-Host "⬅️  Návrat za 2 sekundy ..." -ForegroundColor DarkGray; Start-Sleep -Seconds 2
 }
 
 # ─── Auto-countdown ───────────────────────────────────────────
