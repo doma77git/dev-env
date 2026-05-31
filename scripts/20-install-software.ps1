@@ -14,6 +14,8 @@ param(
     [switch]$IncludeRecommended,
     [switch]$IncludeOptional,
     [switch]$IncludeDev,
+    [switch]$ExportPackages,
+    [switch]$ImportPackages,
     [switch]$Force,
     [switch]$SkipLog
 )
@@ -95,6 +97,32 @@ if ($IncludeRequired) { $catKeys += "required" }
 if ($IncludeRecommended) { $catKeys += "recommended" }
 if ($IncludeOptional) { $catKeys += "optional" }
 if ($IncludeDev) { $catKeys += "dev" }
+
+# ─── WinGet export / import ──────────────────────────────────
+if ($ExportPackages) {
+    $exportPath = Join-Path $env:USERPROFILE ".dev-env" "winget-export.json"
+    Write-Host "📦 Exportuji nainstalované balíčky ..." -NoNewline -ForegroundColor Cyan
+    try {
+        winget export -o $exportPath 2>&1 | Out-Null
+        if ($LASTEXITCODE -eq 0) { Write-Host " OK → $exportPath" -ForegroundColor Green; Write-Log "Exported packages to $exportPath" "INFO" }
+        else { Write-Host " FAIL" -ForegroundColor Red }
+    } catch { Write-Host " ERROR: $_" -ForegroundColor Red }
+    exit 0
+}
+
+if ($ImportPackages) {
+    $importPath = Join-Path $env:USERPROFILE ".dev-env" "winget-export.json"
+    if (-not (Test-Path $importPath)) { Write-Host "❌ Export nenalezen: $importPath" -ForegroundColor Red; exit 1 }
+    Write-Host "📦 Importuji balíčky z $importPath ..." -ForegroundColor Cyan
+    if ($PSCmdlet.ShouldProcess("Import winget packages", "winget import")) {
+        try {
+            winget import -i $importPath --accept-package-agreements --silent 2>&1
+            if ($LASTEXITCODE -eq 0) { Write-Host "  ✅ Import OK" -ForegroundColor Green; Write-Log "Imported packages from $importPath" "INFO" }
+            else { Write-Host "  ❌ Import FAIL ($LASTEXITCODE)" -ForegroundColor Red }
+        } catch { Write-Host "  ❌ Import ERROR: $_" -ForegroundColor Red }
+    }
+    exit 0
+}
 
 # ─── Detekce nainstalovaných ─────────────────────────────────
 $Inventory = @{}
