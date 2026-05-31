@@ -18,6 +18,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          if (-not (Get-Module -ListAvailable -Name PSScriptAnalyzer)) {
+            Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser -AllowClobber
+          }
+          Import-Module PSScriptAnalyzer
+
+      - name: Lint PowerShell scripts
+        shell: pwsh
+        run: |
+          $results = Invoke-ScriptAnalyzer -Path scripts/ -Severity @('Error','Warning') -Recurse -ExcludeRule @('PSAvoidUsingWriteHost', 'PSShouldProcess', 'PSUseDeclaredVarsMoreThanAssignments')
+          $results | Format-Table -AutoSize | Out-String | Write-Host
+          $errors = $results | Where-Object Severity -eq 'Error'
+          if ($errors) { Write-Host "::warning::PSScriptAnalyzer found $($errors.Count) error(s)"; exit 1 }
+          Write-Host "✅ PSScriptAnalyzer passed" -ForegroundColor Green
+        continue-on-error: true  # Non-blocking advisory
+
       - name: Extract phase scripts from AGENTS.md
         shell: pwsh
         run: |
