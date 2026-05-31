@@ -4,8 +4,27 @@
 #         Symlinky konfigů z repa do domovské složky
 # RUN:    ./link-configs.ps1 -WhatIf
 #         ./link-configs.ps1 -Force
+# INPUT:  -Force (overwrite existing), -WhatIf (preview only)
+# OUTPUT: Symlinks in ~/.gitconfig, ~/Documents/PowerShell/profile.ps1
 # ==============================================================
-param([switch]$Force, [switch]$WhatIf)
+[CmdletBinding(SupportsShouldProcess)]
+param([switch]$Force)
+
+# SafeMode check
+$cfgPath = "$env:USERPROFILE\.dev-env\config\profile.json"
+if ((Test-Path $cfgPath) -and (Get-Content $cfgPath|ConvertFrom-Json).safeMode -and -not $Force) {
+    Write-Host "❌ SAFE MODE ACTIVE — symlinks blocked" -ForegroundColor Red; exit 1
+}
+
+# Logger
+$logDir = "$env:USERPROFILE\.dev-env\logs"
+if (-not (Test-Path $logDir)) { New-Item $logDir -ItemType Directory -Force | Out-Null }
+$logFile = "$logDir\link-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
+function Write-Log { param($M,$L="INFO")
+    Add-Content $logFile "[$(Get-Date -Format HH:mm:ss)] [$L] $M" -Encoding UTF8
+    switch($L){ERROR{Write-Host $M -f Red}WARN{Write-Host $M -f Yellow}}
+}
+Write-Log "link-configs started" "INFO"
 
 $repoRoot  = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $configsDir = Join-Path $repoRoot "configs"
