@@ -53,7 +53,7 @@ flowchart TD
     H --> I[50-setup-home<br>HOME, složky, symlinky]
     I --> J[60-repair<br>PATH, OneDrive, rollback]
     J --> K[70-test<br>15 testů]
-    K --> L{Vše OK?}
+    K --> L{16/16 testů OK?}
     L -->|Ano| M[✅ Hotovo]
     L -->|Ne| N[❌ Log v ~/.dev-env/logs/]
 ```
@@ -169,7 +169,7 @@ irm | iex
 |---|---|---|
 | **00. Core check** | `scripts/00-core-check.ps1` | PS7, git, connectivity — exit 1 při chybě, nikdy neinstaluje |
 | **30. Clone** | `scripts/30-clone.ps1` | git clone/pull (vždy běží = read-only) |
-| **10. Detect** | `scripts/10-detect.ps1` | Fingerprint, OS, 13 nástrojů, PATH, OneDrive |
+| **10. Detect** | `scripts/10-detect.ps1` | Fingerprint, OS, 19 nástrojů (kategorie), PATH, OneDrive |
 | **20. Report** | `scripts/20-report.ps1` | JSON → `~/.dev-env/report-*.json` + `machines.json` |
 | **40. Profile** | `scripts/40-profile.ps1` | home / work / lab / server, git identity, GitHub, SSH |
 | **50. Setup** | `scripts/50-setup-{profile}.ps1` | Balíčky, složky, git config, autocrlf (ShouldProcess) |
