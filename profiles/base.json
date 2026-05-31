@@ -3,6 +3,15 @@
   "title": "Base profile — shared across all machines",
   "description": "Dědí z něj home.json, work.json, lab.json",
 
+  "identity": {
+    "_note": "Base identity defaults — override in inherited profiles. profile.ps1 auto-detects at runtime.",
+    "git": {
+      "name": "DEFAULT",
+      "email": "user@localhost"
+    },
+    "github": null
+  },
+
   "envDir": "~/.dev-env",
   "repoDir": "~/.dev-env/repo",
   "configDir": "~/.config",
